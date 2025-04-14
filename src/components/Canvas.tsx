@@ -1,50 +1,101 @@
 import React, { useRef, useEffect } from 'react';
-import { Interpreter } from 'jspython-interpreter'; // Import Interpreter type for better typing
+import { Interpreter } from 'jspython-interpreter'; // Correct import path
 
 interface CanvasProps {
   width: number;
   height: number;
-  gridSize: number;
+  /** Represents the desired number of grid cells horizontally. */
+  gridSize: number; // Now interpreted as number of cells/divisions
   showGrid: boolean;
   pythonCode: string;
-  // Use the specific Interpreter type if available, otherwise 'any' is fallback
   pythonInterpreter: Interpreter | null;
   shouldRun?: boolean;
-  onRunComplete?: () => void; // Corrected prop name typo
+  onRunComplete?: () => void;
+}
+
+const context = {
+  "True": true,
+  "False": false,
+  "print": (...args: unknown[]) => {
+    console.log('Python print:', ...args);
+  },
+  "max": Math.max,
+  "min": Math.min,
+  "abs": Math.abs,
+  "round": Math.round,
+  "floor": Math.floor,
+  "ceil": Math.ceil,
+  "random": Math.random,
+  "sqrt": Math.sqrt,
+  "sin": Math.sin,
+  "cos": Math.cos,
+  "tan": Math.tan,
+  "asin": Math.asin,
+  "acos": Math.acos,
+  "atan": Math.atan,
+  "atan2": Math.atan2,
+  "pow": Math.pow,
+  "log": Math.log,
+  "exp": Math.exp,
+  "log10": Math.log10,
+  "log2": Math.log2,
+  "log1p": Math.log1p,
+  "hypot": Math.hypot,
+  "PI": Math.PI,
+  "E": Math.E,
+  "LN2": Math.LN2,
+  "LN10": Math.LN10,
+  "LOG2E": Math.LOG2E,
+  "LOG10E": Math.LOG10E,
+  "SQRT1_2": Math.SQRT1_2,
+  "SQRT2": Math.SQRT2,
+  "mod": (x: number, y: number) => x % y,
 }
 
 const Canvas: React.FC<CanvasProps> = ({
   width,
   height,
-  gridSize,
+  gridSize, // Interpreted as number of horizontal cells
   showGrid,
   pythonCode,
   pythonInterpreter,
   shouldRun = false,
-  onRunComplete, // Corrected prop name typo
+  onRunComplete,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Ref to track if an execution is currently in progress
   const isExecutingRef = useRef(false);
 
-  // Function to draw the grid (can be called from multiple places)
-  const drawGrid = (ctx: CanvasRenderingContext2D) => {
-    if (!showGrid || gridSize <= 0) return;
+  // --- Calculate cell dimensions based on width and gridSize ---
+  // Ensure gridSize is at least 1 to avoid division by zero and nonsensical layout
+  const effectiveGridSize = Math.max(1, Math.floor(gridSize));
+  // Calculate the pixel size of each cell (assuming square cells for simplicity)
+  const cellSize = width / effectiveGridSize;
+  // Calculate the number of cells needed vertically to cover the height
+  const numCellsY = Math.ceil(height / cellSize);
 
-    ctx.strokeStyle = '#ddd'; // Grid color
-    ctx.lineWidth = 0.5; // Use thinner lines for grid
+  // Function to draw the grid using calculated cell size
+  const drawGridLines = (ctx: CanvasRenderingContext2D) => {
+    if (!showGrid || cellSize <= 0) return;
+
+    ctx.strokeStyle = '#ddd';
+    ctx.lineWidth = 0.5;
 
     // Draw vertical lines
-    for (let x = 0; x <= width; x += gridSize) {
+    // Iterate `effectiveGridSize + 1` times to draw all lines including the last edge
+    for (let i = 0; i <= effectiveGridSize; i++) {
+      const x = i * cellSize;
       ctx.beginPath();
-      // Offset by 0.5 for sharper lines
       ctx.moveTo(Math.floor(x) + 0.5, 0);
       ctx.lineTo(Math.floor(x) + 0.5, height);
       ctx.stroke();
     }
 
     // Draw horizontal lines
-    for (let y = 0; y <= height; y += gridSize) {
+    // Iterate `numCellsY + 1` times
+    for (let i = 0; i <= numCellsY; i++) {
+      const y = i * cellSize;
+      // Don't draw lines beyond the canvas height
+      if (y > height) break;
       ctx.beginPath();
       ctx.moveTo(0, Math.floor(y) + 0.5);
       ctx.lineTo(width, Math.floor(y) + 0.5);
@@ -52,7 +103,7 @@ const Canvas: React.FC<CanvasProps> = ({
     }
   };
 
-  // Effect for initial canvas clearing and drawing grid when size/grid props change
+  // Effect for initial canvas clearing and drawing grid
   useEffect(() => {
     if (!canvasRef.current) return;
     const canvas = canvasRef.current;
@@ -60,30 +111,28 @@ const Canvas: React.FC<CanvasProps> = ({
     if (!ctx) return;
 
     console.log('Canvas: Clearing and drawing initial grid.');
-    // Clear canvas completely
     ctx.clearRect(0, 0, width, height);
-
-    // Optional: Set a background color if needed (default is transparent)
-    // ctx.fillStyle = 'white';
-    // ctx.fillRect(0, 0, width, height);
-
-    // Draw the grid
-    drawGrid(ctx);
-  }, [width, height, gridSize, showGrid]); // Rerun only if these change
+    drawGridLines(ctx); // Use the updated grid drawing function
+    // Dependencies now include calculated values indirectly via props
+  }, [width, height, gridSize, showGrid]);
 
   // Effect for executing Python code
   useEffect(() => {
+    // Recalculate derived values inside the effect if they depend on props
+    // that might change and trigger this effect.
+    const currentEffectiveGridSize = Math.max(1, Math.floor(gridSize));
+    const currentCellSize = width / currentEffectiveGridSize;
+    const currentNumCellsY = Math.ceil(height / currentCellSize);
+
     // --- Guard Clauses ---
     if (
-      !shouldRun || // Only run when triggered
-      !pythonInterpreter || // Need the interpreter
-      !pythonCode.trim() || // Need code
-      !canvasRef.current || // Need the canvas element
-      isExecutingRef.current // Prevent concurrent runs
+      !shouldRun ||
+      !pythonInterpreter ||
+      !pythonCode.trim() ||
+      !canvasRef.current ||
+      isExecutingRef.current ||
+      currentCellSize <= 0 // Add check for valid cell size
     ) {
-      // If shouldRun was true but we didn't run, maybe call onRunComplete?
-      // Or assume the parent handles the shouldRun reset logic correctly.
-      // For safety, let's ensure onRunComplete is called if shouldRun is true but we bail early.
       if (shouldRun && !isExecutingRef.current) {
         console.log(
           'Canvas: shouldRun is true, but prerequisites not met. Calling onRunComplete.',
@@ -97,101 +146,95 @@ const Canvas: React.FC<CanvasProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       console.error('Canvas: Failed to get 2D context.');
-      onRunComplete?.(); // Signal completion even on error
+      onRunComplete?.();
       return;
     }
 
     // --- Execution Logic ---
     const executePythonDrawing = async () => {
-      if (isExecutingRef.current) return; // Double check concurrency
-      isExecutingRef.current = true; // Mark as executing
+      if (isExecutingRef.current) return;
+      isExecutingRef.current = true;
       console.log('Canvas: Starting Python execution.');
 
       try {
-        // 1. Clear previous drawing & Draw Grid for this run
+        // 1. Clear & Draw Grid
         ctx.clearRect(0, 0, width, height);
-        // Optional background fill
-        // ctx.fillStyle = 'white';
-        // ctx.fillRect(0, 0, width, height);
-        drawGrid(ctx); // Draw grid overlay first
+        drawGridLines(ctx); // Use updated grid drawing
 
-        // 2. Define the Python function(s) in the interpreter's context
-        console.log('Canvas: Evaluating Python code definition...');
-        await pythonInterpreter.evalAsync(pythonCode);
-        console.log('Canvas: Python code definition evaluated.');
+        // 2. Define Python function(s)
+        // console.log('Canvas: Evaluating Python code definition...');
+        let parseAST = pythonInterpreter.parse(pythonCode);
+        // console.log('Canvas: Python code definition evaluated.');
 
         // 3. Set drawing color
-        ctx.fillStyle = 'black'; // Color for filled pixels
+        ctx.fillStyle = 'black';
 
-        // 4. Iterate and call Python 'draw' function for each grid cell
-        console.log('Canvas: Starting pixel loop...');
-        const promises = []; // Store promises for potential parallel execution (optional)
+        // 4. Iterate based on calculated number of cells
+        console.log(
+          `Canvas: Starting cell loop (${currentEffectiveGridSize}x${currentNumCellsY} cells, size ${currentCellSize.toFixed(2)}px)...`,
+        );
 
-        for (let y = 0; y < height; y += gridSize) {
-          for (let x = 0; x < width; x += gridSize) {
-            // Construct the Python call string
-            // Pass coordinates and dimensions
-            const pythonCall = `draw(${x}, ${y}, ${width}, ${height})`;
+        // Iterate through the grid cells by index
+        for (let cellY = 0; cellY < currentNumCellsY; cellY++) {
+          for (let cellX = 0; cellX < currentEffectiveGridSize; cellX++) {
+            // Calculate the top-left pixel coordinate for the current cell
+            const pixelX = cellX * currentCellSize;
+            const pixelY = cellY * currentCellSize;
 
-            // Asynchronously call the Python function
-            // We don't strictly need to await each one *here* if drawing order doesn't matter,
-            // but awaiting ensures sequential processing and easier error handling per pixel.
-            // For potentially faster rendering (but harder error pinpointing),
-            // you could push promises to an array and use Promise.all later.
             try {
-              const result = await pythonInterpreter.evalAsync(pythonCall);
+              const result = await pythonInterpreter.evalAsync(parseAST, context, ["draw", cellX, cellY, width, height])
 
-              // Check if the result is truthy (Python True, non-zero numbers, non-empty strings etc.)
               if (result) {
-                // Fill the grid cell
-                ctx.fillRect(x, y, gridSize, gridSize);
+                // Fill the rectangle representing this cell
+                // Use floor/ceil carefully if exact pixel boundaries matter,
+                // but fillRect usually handles fractional coords reasonably.
+                ctx.fillRect(
+                  pixelX,
+                  pixelY,
+                  currentCellSize,
+                  currentCellSize, // Draw a square cell
+                );
               }
             } catch (pixelError) {
               console.error(
-                `Canvas: Error executing draw(${x}, ${y}):`,
+                `Canvas: Error executing draw for cell (${cellX}, ${cellY}) at pixel (${pixelX.toFixed(2)}, ${pixelY.toFixed(2)}):`,
                 pixelError,
               );
-              // Optional: Stop the whole process on pixel error, or just continue
-              // throw pixelError; // Uncomment to stop on first pixel error
+              // Decide whether to stop or continue
             }
           }
-          // Optional: Yield to the event loop occasionally for large canvases
+          // Optional yield
           // await new Promise(resolve => setTimeout(resolve, 0));
         }
-        console.log('Canvas: Pixel loop finished.');
+        console.log('Canvas: Cell loop finished.');
       } catch (error) {
         console.error('Canvas: Error during Python execution:', error);
-        // Handle errors (e.g., syntax error in pythonCode definition)
       } finally {
         console.log('Canvas: Python execution finished. Calling onRunComplete.');
-        isExecutingRef.current = false; // Mark execution as finished
-        onRunComplete?.(); // Notify parent component that execution is complete
+        isExecutingRef.current = false;
+        onRunComplete?.();
       }
     };
 
     executePythonDrawing();
-
-    // This effect should only run when `shouldRun` transitions to true,
-    // or if other dependencies change *while* shouldRun is true (which shouldn't happen with current parent logic).
-    // The cleanup function is less critical here as the main control is `shouldRun`.
   }, [
+    // Dependencies remain largely the same, but their interpretation changes behavior
     shouldRun,
     pythonInterpreter,
     pythonCode,
     width,
     height,
-    gridSize,
-    showGrid, // Include showGrid if drawGrid is inside this effect
+    gridSize, // gridSize change now recalculates cell sizes
+    showGrid,
     onRunComplete,
   ]);
 
-  // Render the canvas element
   return (
     <canvas
       ref={canvasRef}
       width={width}
       height={height}
-      style={{ border: '1px solid #ccc' }} // Basic border for visibility
+      style={{ border: '1px solid #ccc' }}
     />
   );
 };

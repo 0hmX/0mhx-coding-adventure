@@ -1,116 +1,180 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, memo } from 'react';
 import ace from 'ace-builds';
 
 // --- Import necessary modes and theme ---
-// Import the modes you expect to use (e.g., python, lua)
 import 'ace-builds/src-noconflict/mode-python';
-// Import the theme
+// import 'ace-builds/src-noconflict/mode-lua'; // Added Lua for example
 import 'ace-builds/src-noconflict/theme-monokai';
-// Import extensions
 import 'ace-builds/src-noconflict/ext-language_tools';
-// Optional: Import worker files if you encounter issues with syntax checking/linting
-// import 'ace-builds/src-noconflict/worker-python'; // Example for Python worker
+// Optional: Import worker files if needed
+// import 'ace-builds/src-noconflict/worker-python';
 
 interface CodeEditorProps {
   initialValue: string;
   onChange: (value: string) => void;
   language: string; // e.g., "python", "lua"
+  // Add other Ace options as props if you want them configurable
+  theme?: string;
+  fontSize?: number;
+  readOnly?: boolean;
 }
 
-const CodeEditor: React.FC<CodeEditorProps> = ({
-  initialValue,
-  onChange,
-  language, // Destructure the language prop
-}) => {
-  const editorRef = useRef<HTMLDivElement>(null);
-  // @ts-ignore
-  const aceEditorRef = useRef<ace.Ace.Editor | null>(null);
-  const onChangeRef = useRef(onChange);
+// Wrap component with React.memo
+const CodeEditor: React.FC<CodeEditorProps> = memo(
+  ({
+    initialValue,
+    onChange,
+    language,
+    theme = 'ace/theme/monokai', // Default theme
+    fontSize = 14, // Default font size
+    readOnly = false, // Default readOnly state
+  }) => {
+    const editorRef = useRef<HTMLDivElement>(null);
+    // @ts-ignore
+    const aceEditorRef = useRef<ace.Ace.Editor | null>(null);
+    const onChangeRef = useRef(onChange);
+    const isInitializingRef = useRef(true); // Flag to manage initial value setting
 
-  // Keep onChangeRef updated
-  useEffect(() => {
-    onChangeRef.current = onChange;
-  }, [onChange]);
+    // Keep onChangeRef updated without causing re-renders of effects using it
+    useEffect(() => {
+      onChangeRef.current = onChange;
+    }, [onChange]);
 
-  // --- Effect for Editor Initialization ---
-  useEffect(() => {
-    if (!editorRef.current || aceEditorRef.current) return; // Initialize only once
+    // --- Effect for Editor Initialization (Runs only ONCE on mount) ---
+    useEffect(() => {
+      if (!editorRef.current) return; // Should not happen if div exists
 
-    aceEditorRef.current = ace.edit(editorRef.current);
-    const editor = aceEditorRef.current;
-
-    // --- Set initial options including the dynamic mode ---
-    editor.setOptions({
-      theme: 'ace/theme/monokai',
-      mode: `ace/mode/${language}`, // Use the language prop here
-      enableBasicAutocompletion: true,
-      enableLiveAutocompletion: true,
-      enableSnippets: true,
-      showLineNumbers: true,
-      tabSize: 2,
-      useWorker: true, // Set to true if you imported worker files
-      fontSize: 14,
-      showGutter: true,
-      highlightActiveLine: true,
-      highlightSelectedWord: true,
-      showPrintMargin: false,
-      scrollPastEnd: false,
-    });
-
-    editor.setValue(initialValue, -1);
-
-    const changeListener = () => {
-      if (aceEditorRef.current) {
-        onChangeRef.current(aceEditorRef.current.getValue());
+      // Ensure Ace is loaded - sometimes needed in certain environments
+      if (!ace) {
+        console.error('Ace editor instance not found.');
+        return;
       }
-    };
-    editor.on('change', changeListener);
 
-    const resizeObserver = new ResizeObserver(() => editor.resize());
-    resizeObserver.observe(editorRef.current);
+      // Prevent re-initialization if already done
+      if (aceEditorRef.current) return;
 
-    return () => {
-      resizeObserver.disconnect();
-      if (editor) {
-        editor.off('change', changeListener);
-        editor.destroy();
-        // Attempting manual cleanup (though editor.destroy() should handle most)
-        const editorNode = editor.container;
-        if (editorNode) {
-          // @ts-ignore - These properties might not exist or be directly deletable
-          delete editorNode.env;
-          // @ts-ignore
-          delete editorNode.renderer;
-          // @ts-ignore
-          delete editorNode.session;
-          // @ts-ignore
-          delete editorNode.$mouseHandler;
+      console.log('CodeEditor: Initializing Ace Editor...');
+      isInitializingRef.current = true; // Set flag before setting value
+
+      aceEditorRef.current = ace.edit(editorRef.current);
+      const editor = aceEditorRef.current;
+
+      // --- Set initial options ---
+      editor.setOptions({
+        theme: theme,
+        mode: `ace/mode/${language}`,
+        enableBasicAutocompletion: true,
+        enableLiveAutocompletion: true,
+        enableSnippets: true,
+        showLineNumbers: true,
+        tabSize: 2,
+        useWorker: false, // Set true only if workers are correctly configured
+        fontSize: fontSize,
+        showGutter: true,
+        highlightActiveLine: true,
+        highlightSelectedWord: true,
+        showPrintMargin: false,
+        scrollPastEnd: false,
+        readOnly: readOnly,
+      });
+
+      // Set the initial value ONLY during initialization
+      editor.setValue(initialValue, -1); // Move cursor to the start
+
+      isInitializingRef.current = false; // Clear flag after setting initial value
+
+      const changeListener = () => {
+        // Avoid calling onChange during the initial setValue
+        if (aceEditorRef.current && !isInitializingRef.current) {
+          onChangeRef.current(aceEditorRef.current.getValue());
+        }
+      };
+      editor.on('change', changeListener);
+
+      // Handle resizing
+      const resizeObserver = new ResizeObserver(() => editor.resize());
+      if (editorRef.current) {
+        resizeObserver.observe(editorRef.current);
+      }
+
+      // --- Cleanup ---
+      return () => {
+        console.log('CodeEditor: Cleaning up Ace Editor...');
+        resizeObserver.disconnect();
+        if (editor) {
+          editor.off('change', changeListener);
+          editor.destroy(); // This is the primary cleanup method
+          // The container node is destroyed, manual deletion is usually not needed
+        }
+        aceEditorRef.current = null; // Clear the ref
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // <-- EMPTY dependency array: Run only once on mount
+
+    // --- Effect to handle EXTERNAL changes to initialValue (Optional) ---
+    // This effect allows the parent to programmatically reset the editor's
+    // content by changing the initialValue prop AFTER the initial mount.
+    // Be cautious with this, as it can conflict with user input if not managed carefully.
+    useEffect(() => {
+      if (aceEditorRef.current && !isInitializingRef.current) {
+        const currentValue = aceEditorRef.current.getValue();
+        // Only update if the prop value is different from the current editor value
+        if (initialValue !== currentValue) {
+          console.log(
+            'CodeEditor: Received new initialValue prop, updating editor.',
+          );
+          // Set flag to prevent onChange during this programmatic change
+          isInitializingRef.current = true;
+          aceEditorRef.current.setValue(initialValue, -1);
+          isInitializingRef.current = false;
         }
       }
-      aceEditorRef.current = null;
-    };
-    // Add language to dependency array ONLY if you want to re-initialize
-    // the entire editor on language change (usually not desired).
-    // We handle language changes separately below.
-  }, [initialValue]); // Run only once on mount based on initialValue
+      // This effect should run when initialValue changes *after* mount
+    }, [initialValue]);
 
-  // --- Effect to handle language prop changes ---
-  useEffect(() => {
-    if (aceEditorRef.current) {
-      // Update the mode if the language prop changes after initialization
-      aceEditorRef.current.session.setMode(`ace/mode/${language}`);
-      console.log(`CodeEditor: Mode set to ace/mode/${language}`);
-    }
-  }, [language]); // Re-run this effect only when the language prop changes
+    // --- Effect to handle language prop changes ---
+    useEffect(() => {
+      if (aceEditorRef.current) {
+        console.log(`CodeEditor: Setting mode to ace/mode/${language}`);
+        aceEditorRef.current.session.setMode(`ace/mode/${language}`);
+      }
+    }, [language]); // Re-run only when language changes
 
-  return (
-    <div
-      // Consider a more specific ID if needed, but ref is usually sufficient
-      // id="editor-container"
-      ref={editorRef}
-      className="absolute inset-0 h-full w-full" // Ensure parent has relative positioning
-    ></div>
-  );
-};
+    // --- Effect to handle theme prop changes ---
+    useEffect(() => {
+      if (aceEditorRef.current) {
+        console.log(`CodeEditor: Setting theme to ${theme}`);
+        aceEditorRef.current.setTheme(theme);
+      }
+    }, [theme]); // Re-run only when theme changes
+
+    // --- Effect to handle fontSize prop changes ---
+    useEffect(() => {
+      if (aceEditorRef.current) {
+        console.log(`CodeEditor: Setting font size to ${fontSize}`);
+        aceEditorRef.current.setFontSize(fontSize);
+      }
+    }, [fontSize]); // Re-run only when fontSize changes
+
+    // --- Effect to handle readOnly prop changes ---
+    useEffect(() => {
+      if (aceEditorRef.current) {
+        console.log(`CodeEditor: Setting readOnly to ${readOnly}`);
+        aceEditorRef.current.setReadOnly(readOnly);
+      }
+    }, [readOnly]); // Re-run only when readOnly changes
+
+    return (
+      <div
+        ref={editorRef}
+        className="absolute inset-0 h-full w-full" // Ensure parent has relative positioning
+        style={{ minHeight: '100px' }} // Example: Ensure minimum height
+      ></div>
+    );
+  },
+);
+
+// Add display name for better debugging
+CodeEditor.displayName = 'CodeEditor';
 
 export default CodeEditor;

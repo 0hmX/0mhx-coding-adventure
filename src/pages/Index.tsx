@@ -20,21 +20,9 @@ const DEFAULT_PYTHON_CODE = `# Define a function to draw based on coordinates
 # WIDTH and HEIGHT are the canvas dimensions
 # Return True (or any truthy value) to color the pixel,
 # False (or any falsy value like None, 0) to leave it transparent
-import math
 
 def draw(X, Y, WIDTH, HEIGHT):
-  # Calculate distance from center
-  center_x = WIDTH / 2
-  center_y = HEIGHT / 2
-  # Use min for radius, ensure it's positive
-  radius = max(1, min(WIDTH, HEIGHT) / 4) 
-  
-  # Calculate distance from the center of the pixel
-  # Add 0.5 to X and Y to target the pixel's center
-  distance = math.hypot(X + 0.5 - center_x, Y + 0.5 - center_y)
-  
-  # Return true if point is inside the circle
-  return distance <= radius
+  return True
 `;
 
 const Index = () => {
