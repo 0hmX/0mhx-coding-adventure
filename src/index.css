@@ -82,20 +82,35 @@
     position: absolute;
     top: 10px;
     right: 10px;
-    background-color: rgba(0, 0, 0, 0.7);
-    padding: 10px;
-    border-radius: 5px;
+    background-color: rgba(15, 23, 42, 0.7);
+    padding: 12px;
+    border-radius: 12px;
     color: white;
     z-index: 10;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   }
 
   .grid-controls label {
     display: block;
     margin-bottom: 5px;
+    font-weight: 500;
   }
 
   .grid-controls input {
     margin-bottom: 10px;
     width: 60px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: white;
+    padding: 4px 6px;
+  }
+}
+
+@layer components {
+  .material-card {
+    @apply rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 shadow-md;
   }
 }

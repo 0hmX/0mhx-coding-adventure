@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CodeEditor from '../components/CodeEditor';
 import Canvas from '../components/Canvas';
 import GridControls from '../components/GridControls';
+import Navbar from '../components/Navbar';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -87,27 +87,17 @@ const Index = () => {
   }, [isRunning, shouldRun]);
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-background">
+    <div className="h-screen w-screen overflow-hidden bg-background p-4">
+      <Navbar onRunCode={handleRunCode} isRunning={isRunning} />
+      
       <ResizablePanelGroup
         direction={isMobile ? "vertical" : "horizontal"}
-        className="h-full w-full"
+        className="h-[calc(100%-64px)] w-full"
       >
         <ResizablePanel defaultSize={50} minSize={30}>
-          <div className="flex h-full flex-col">
-            <div className="p-4 flex justify-between items-center border-b">
+          <div className="flex h-full flex-col rounded-xl overflow-hidden border border-white/10">
+            <div className="p-4 flex justify-between items-center border-b border-white/10 bg-white/5">
               <h2 className="text-lg font-semibold">Lua Editor</h2>
-              <Button 
-                onClick={handleRunCode} 
-                className="relative"
-                disabled={isRunning}
-              >
-                Run Code
-                {isRunning ? (
-                  <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                )}
-              </Button>
             </div>
             <div className="flex-grow relative">
               <CodeEditor 
@@ -121,7 +111,7 @@ const Index = () => {
         <ResizableHandle withHandle />
         
         <ResizablePanel defaultSize={50} minSize={30}>
-          <div className="h-full relative bg-white">
+          <div className="h-full relative rounded-xl overflow-hidden border border-white/10 bg-white/5">
             <div className="h-full flex items-center justify-center">
               <Canvas
                 width={canvasWidth}
