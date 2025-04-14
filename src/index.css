@@ -54,12 +54,6 @@
     padding: 0;
   }
 
-  .editor-container {
-    height: 100%;
-    width: 50%;
-    position: relative;
-  }
-
   #editor {
     position: absolute;
     top: 0;
@@ -67,13 +61,6 @@
     bottom: 0;
     left: 0;
     font-size: 14px;
-  }
-
-  .canvas-container {
-    height: 100%;
-    width: 50%;
-    background-color: white;
-    position: relative;
   }
 
   .canvas-wrapper {

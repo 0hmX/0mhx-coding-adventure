@@ -1,8 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
+import { ArrowRight, LoaderCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import CodeEditor from '../components/CodeEditor';
 import Canvas from '../components/Canvas';
 import GridControls from '../components/GridControls';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 
 // Default Lua code with a circle example
 const DEFAULT_LUA_CODE = `-- Define a function to draw a circle
@@ -29,6 +32,8 @@ const Index = () => {
   const [canvasWidth, setCanvasWidth] = useState(500);
   const [canvasHeight, setCanvasHeight] = useState(500);
   const [luaInterpreter, setLuaInterpreter] = useState<any>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [shouldRun, setShouldRun] = useState(false);
 
   // Load the Fengari Lua interpreter
   useEffect(() => {
@@ -62,35 +67,82 @@ const Index = () => {
     setCanvasHeight(height);
   };
 
+  const handleRunCode = () => {
+    setIsRunning(true);
+    setShouldRun(true);
+    
+    // Reset the running state after animation completes
+    setTimeout(() => {
+      setIsRunning(false);
+    }, 1000);
+  };
+
+  // Reset shouldRun after execution
+  useEffect(() => {
+    if (!isRunning && shouldRun) {
+      setShouldRun(false);
+    }
+  }, [isRunning, shouldRun]);
+
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
-      <div className="editor-container">
-        <CodeEditor 
-          initialValue={luaCode} 
-          onChange={handleCodeChange} 
-        />
-      </div>
-      <div className="canvas-container">
-        <div className="canvas-wrapper">
-          <Canvas
-            width={canvasWidth}
-            height={canvasHeight}
-            gridSize={gridSize}
-            showGrid={showGrid}
-            luaCode={luaCode}
-            luaInterpreter={luaInterpreter}
-          />
-        </div>
-        <GridControls
-          gridSize={gridSize}
-          showGrid={showGrid}
-          onGridSizeChange={handleGridSizeChange}
-          onShowGridChange={handleShowGridChange}
-          canvasWidth={canvasWidth}
-          canvasHeight={canvasHeight}
-          onCanvasSizeChange={handleCanvasSizeChange}
-        />
-      </div>
+    <div className="h-screen w-screen overflow-hidden bg-background">
+      <ResizablePanelGroup
+        direction="horizontal"
+        className="h-full w-full"
+      >
+        <ResizablePanel defaultSize={50} minSize={30}>
+          <div className="flex h-full flex-col">
+            <div className="p-4 flex justify-between items-center border-b">
+              <h2 className="text-lg font-semibold">Lua Editor</h2>
+              <Button 
+                onClick={handleRunCode} 
+                className="relative"
+                disabled={isRunning}
+              >
+                Run Code
+                {isRunning ? (
+                  <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <div className="flex-grow relative">
+              <CodeEditor 
+                initialValue={luaCode} 
+                onChange={handleCodeChange} 
+              />
+            </div>
+          </div>
+        </ResizablePanel>
+        
+        <ResizableHandle withHandle />
+        
+        <ResizablePanel defaultSize={50} minSize={30}>
+          <div className="h-full relative bg-white">
+            <div className="h-full flex items-center justify-center">
+              <Canvas
+                width={canvasWidth}
+                height={canvasHeight}
+                gridSize={gridSize}
+                showGrid={showGrid}
+                luaCode={luaCode}
+                luaInterpreter={luaInterpreter}
+                shouldRun={shouldRun}
+              />
+            </div>
+            <GridControls
+              gridSize={gridSize}
+              showGrid={showGrid}
+              onGridSizeChange={handleGridSizeChange}
+              onShowGridChange={handleShowGridChange}
+              canvasWidth={canvasWidth}
+              canvasHeight={canvasHeight}
+              onCanvasSizeChange={handleCanvasSizeChange}
+            />
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 };
