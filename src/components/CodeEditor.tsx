@@ -12,7 +12,7 @@ interface CodeEditorProps {
 
 const CodeEditor: React.FC<CodeEditorProps> = ({ initialValue, onChange }) => {
   const editorRef = useRef<HTMLDivElement>(null);
-  const aceEditorRef = useRef<ace.Ace.Editor | null>(null);
+  const aceEditorRef = useRef<any>(null);
 
   useEffect(() => {
     if (!editorRef.current) return;
