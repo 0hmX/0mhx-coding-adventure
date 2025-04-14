@@ -6,6 +6,7 @@ import CodeEditor from '../components/CodeEditor';
 import Canvas from '../components/Canvas';
 import GridControls from '../components/GridControls';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Default Lua code with a circle example
 const DEFAULT_LUA_CODE = `-- Define a function to draw a circle
@@ -34,6 +35,7 @@ const Index = () => {
   const [luaInterpreter, setLuaInterpreter] = useState<any>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [shouldRun, setShouldRun] = useState(false);
+  const isMobile = useIsMobile();
 
   // Load the Fengari Lua interpreter
   useEffect(() => {
@@ -87,7 +89,7 @@ const Index = () => {
   return (
     <div className="h-screen w-screen overflow-hidden bg-background">
       <ResizablePanelGroup
-        direction="horizontal"
+        direction={isMobile ? "vertical" : "horizontal"}
         className="h-full w-full"
       >
         <ResizablePanel defaultSize={50} minSize={30}>
