@@ -1,5 +1,8 @@
 import React, { useRef, useEffect } from 'react';
-import { Interpreter } from 'jspython-interpreter'; // Correct import path
+import { Interpreter } from 'jspython-interpreter';
+import * as THREE from 'three';
+// @ts-ignore
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 interface CanvasProps {
   width: number;
@@ -55,186 +58,285 @@ const context = {
 const Canvas: React.FC<CanvasProps> = ({
   width,
   height,
-  gridSize, // Interpreted as number of horizontal cells
+  gridSize,
   showGrid,
   pythonCode,
   pythonInterpreter,
   shouldRun = false,
   onRunComplete,
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const controlsRef = useRef<OrbitControls | null>(null);
+  const gridHelperRef = useRef<THREE.GridHelper | null>(null);
+  // Update the type definition to be more specific about the 3D array structure
+  const cubesRef = useRef<Array<Array<Array<THREE.Mesh>>>>([]);
   const isExecutingRef = useRef(false);
 
-  // --- Calculate cell dimensions based on width and gridSize ---
-  // Ensure gridSize is at least 1 to avoid division by zero and nonsensical layout
+  // --- Calculate grid dimensions ---
   const effectiveGridSize = Math.max(1, Math.floor(gridSize));
-  // Calculate the pixel size of each cell (assuming square cells for simplicity)
-  const cellSize = width / effectiveGridSize;
-  // Calculate the number of cells needed vertically to cover the height
-  const numCellsY = Math.ceil(height / cellSize);
-
-  // Function to draw the grid using calculated cell size
-  const drawGridLines = (ctx: CanvasRenderingContext2D) => {
-    if (!showGrid || cellSize <= 0) return;
-
-    ctx.strokeStyle = '#ddd';
-    ctx.lineWidth = 0.5;
-
-    // Draw vertical lines
-    // Iterate `effectiveGridSize + 1` times to draw all lines including the last edge
-    for (let i = 0; i <= effectiveGridSize; i++) {
-      const x = i * cellSize;
-      ctx.beginPath();
-      ctx.moveTo(Math.floor(x) + 0.5, 0);
-      ctx.lineTo(Math.floor(x) + 0.5, height);
-      ctx.stroke();
-    }
-
-    // Draw horizontal lines
-    // Iterate `numCellsY + 1` times
-    for (let i = 0; i <= numCellsY; i++) {
-      const y = i * cellSize;
-      // Don't draw lines beyond the canvas height
-      if (y > height) break;
-      ctx.beginPath();
-      ctx.moveTo(0, Math.floor(y) + 0.5);
-      ctx.lineTo(width, Math.floor(y) + 0.5);
-      ctx.stroke();
-    }
-  };
-
-  // Effect for initial canvas clearing and drawing grid
+  
+  // Initialize Three.js scene
   useEffect(() => {
-    if (!canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    console.log('Canvas: Clearing and drawing initial grid.');
-    ctx.clearRect(0, 0, width, height);
-    drawGridLines(ctx); // Use the updated grid drawing function
-    // Dependencies now include calculated values indirectly via props
-  }, [width, height, gridSize, showGrid]);
-
+    if (!containerRef.current) return;
+    
+    // Create scene
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000); // Changed to black color
+    sceneRef.current = scene;
+    
+    // Create camera
+    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    // Adjusted camera position for better centering
+    camera.position.set(
+      effectiveGridSize / 2, 
+      effectiveGridSize / 2, 
+      effectiveGridSize * 1.8
+    );
+    camera.lookAt(effectiveGridSize / 2, effectiveGridSize / 2, effectiveGridSize / 2);
+    cameraRef.current = camera;
+    
+    // Create renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(width, height);
+    containerRef.current.appendChild(renderer.domElement);
+    rendererRef.current = renderer;
+    
+    // Add orbit controls
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.25;
+    controlsRef.current = controls;
+    
+    // Add ambient light
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+    
+    // Add directional light
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(1, 1, 1);
+    scene.add(directionalLight);
+    
+    // Create grid helper if needed
+    if (showGrid) {
+      const gridHelper = new THREE.GridHelper(effectiveGridSize, effectiveGridSize);
+      // Adjust grid position to fix the 0.5 unit offset
+      gridHelper.position.set(effectiveGridSize / 2 , 0, effectiveGridSize / 2 );
+      sceneRef.current.add(gridHelper);
+      gridHelperRef.current = gridHelper;
+    }
+    
+    // Animation loop
+    const animate = () => {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    };
+    animate();
+    
+    // Cleanup function
+    return () => {
+      if (containerRef.current && renderer.domElement) {
+        containerRef.current.removeChild(renderer.domElement);
+      }
+      renderer.dispose();
+      if (gridHelperRef.current) {
+        scene.remove(gridHelperRef.current);
+      }
+      // Remove all cubes and properly dispose of resources
+      if (cubesRef.current.length > 0) {
+        // Only dispose geometry once since it's shared
+        let geometryDisposed = false;
+        cubesRef.current.forEach(zRow => {
+          if (Array.isArray(zRow)) {
+            zRow.forEach(yRow => {
+              if (Array.isArray(yRow)) {
+                yRow.forEach(cube => {
+                  if (cube instanceof THREE.Mesh) {
+                    scene.remove(cube);
+                    if (!geometryDisposed && cube.geometry) {
+                      cube.geometry.dispose();
+                      geometryDisposed = true;
+                    }
+                    if (cube.material) {
+                      (cube.material as THREE.Material).dispose();
+                    }
+                  }
+                });
+              }
+            });
+          }
+        });
+        cubesRef.current = [];
+      }
+    };
+  }, [width, height, effectiveGridSize, showGrid]);
+  
+  // Update grid visibility when showGrid changes
+  useEffect(() => {
+    if (!sceneRef.current) return;
+    
+    if (gridHelperRef.current) {
+      sceneRef.current.remove(gridHelperRef.current);
+      gridHelperRef.current = null;
+    }
+    
+    if (showGrid) {
+      const gridHelper = new THREE.GridHelper(effectiveGridSize, effectiveGridSize);
+      // Center the grid helper
+      gridHelper.position.set(effectiveGridSize / 2, 0, effectiveGridSize / 2);
+      sceneRef.current.add(gridHelper);
+      gridHelperRef.current = gridHelper;
+    }
+  }, [showGrid, effectiveGridSize]);
+  
   // Effect for executing Python code
   useEffect(() => {
-    // Recalculate derived values inside the effect if they depend on props
-    // that might change and trigger this effect.
-    const currentEffectiveGridSize = Math.max(1, Math.floor(gridSize));
-    const currentCellSize = width / currentEffectiveGridSize;
-    const currentNumCellsY = Math.ceil(height / currentCellSize);
-
     // --- Guard Clauses ---
     if (
       !shouldRun ||
       !pythonInterpreter ||
       !pythonCode.trim() ||
-      !canvasRef.current ||
-      isExecutingRef.current ||
-      currentCellSize <= 0 // Add check for valid cell size
+      !sceneRef.current ||
+      isExecutingRef.current
     ) {
       if (shouldRun && !isExecutingRef.current) {
         console.log(
-          'Canvas: shouldRun is true, but prerequisites not met. Calling onRunComplete.',
+          'Canvas3D: shouldRun is true, but prerequisites not met. Calling onRunComplete.',
         );
         onRunComplete?.();
       }
       return;
     }
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      console.error('Canvas: Failed to get 2D context.');
-      onRunComplete?.();
-      return;
-    }
-
+    
+    const scene = sceneRef.current;
+    
     // --- Execution Logic ---
     const executePythonDrawing = async () => {
       if (isExecutingRef.current) return;
       isExecutingRef.current = true;
-      console.log('Canvas: Starting Python execution.');
-
+      console.log('Canvas3D: Starting Python execution.');
+      
       try {
-        // 1. Clear & Draw Grid
-        ctx.clearRect(0, 0, width, height);
-        drawGridLines(ctx); // Use updated grid drawing
-
-        // 2. Define Python function(s)
-        // console.log('Canvas: Evaluating Python code definition...');
+        // 1. Parse Python code
         let parseAST = pythonInterpreter.parse(pythonCode);
-        // console.log('Canvas: Python code definition evaluated.');
-
-        // 3. Set drawing color
-        ctx.fillStyle = 'black';
-
-        // 4. Iterate based on calculated number of cells
-        console.log(
-          `Canvas: Starting cell loop (${currentEffectiveGridSize}x${currentNumCellsY} cells, size ${currentCellSize.toFixed(2)}px)...`,
-        );
-
-        // Iterate through the grid cells by index
-        for (let cellY = 0; cellY < currentNumCellsY; cellY++) {
-          for (let cellX = 0; cellX < currentEffectiveGridSize; cellX++) {
-            // Calculate the top-left pixel coordinate for the current cell
-            const pixelX = cellX * currentCellSize;
-            const pixelY = cellY * currentCellSize;
-
-            try {
-              const result = await pythonInterpreter.evalAsync(parseAST, context, ["draw", cellX, cellY, width, height])
-
-              if (result) {
-                // Fill the rectangle representing this cell
-                // Use floor/ceil carefully if exact pixel boundaries matter,
-                // but fillRect usually handles fractional coords reasonably.
-                ctx.fillRect(
-                  pixelX,
-                  pixelY,
-                  currentCellSize,
-                  currentCellSize, // Draw a square cell
-                );
+        
+        // 2. Create a reusable geometry if it doesn't exist yet
+        const geometry = new THREE.BoxGeometry(.9, .9, .9);
+        
+        // 3. Initialize or reuse cubes array
+        if (!cubesRef.current.length) {
+          // First run - create all cubes but make them invisible
+          const newCubes: Array<Array<Array<THREE.Mesh>>> = [];
+          
+          for (let z = 0; z < effectiveGridSize; z++) {
+            newCubes[z] = [];
+            for (let y = 0; y < effectiveGridSize; y++) {
+              newCubes[z][y] = [];
+              for (let x = 0; x < effectiveGridSize; x++) {
+                // Create cube with default material
+                const material = new THREE.MeshLambertMaterial({ 
+                  color: 0xffffff,
+                  transparent: true,
+                  opacity: 0 // Start invisible
+                });
+                
+                const cube = new THREE.Mesh(geometry, material);
+                cube.position.set(x+.5, y+.5, z+.5);
+                scene.add(cube);
+                
+                newCubes[z][y][x] = cube;
               }
-            } catch (pixelError) {
-              console.error(
-                `Canvas: Error executing draw for cell (${cellX}, ${cellY}) at pixel (${pixelX.toFixed(2)}, ${pixelY.toFixed(2)}):`,
-                pixelError,
-              );
-              // Decide whether to stop or continue
             }
           }
-          // Optional yield
-          // await new Promise(resolve => setTimeout(resolve, 0));
+          
+          cubesRef.current = newCubes;
         }
-        console.log('Canvas: Cell loop finished.');
+        else {
+          // Reset all cubes to invisible
+          for (let z = 0; z < cubesRef.current.length; z++) {
+            const zLayer = cubesRef.current[z];
+            if (zLayer) {
+              for (let y = 0; y < zLayer.length; y++) {
+                const yRow = zLayer[y];
+                if (yRow) {
+                  for (let x = 0; x < yRow.length; x++) {
+                    const cube = yRow[x];
+                    if (cube && cube.material) {
+                      (cube.material as THREE.MeshLambertMaterial).opacity = 0;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        // 4. Update cube visibility and colors based on Python code
+        for (let z = 0; z < effectiveGridSize; z++) {
+          for (let y = 0; y < effectiveGridSize; y++) {
+            for (let x = 0; x < effectiveGridSize; x++) {
+              try {
+                const result = await pythonInterpreter.evalAsync(
+                  parseAST, 
+                  context, 
+                  ["draw", x, y, z, effectiveGridSize]
+                );
+                
+                // Make sure we have a cube at this position
+                if (z < cubesRef.current.length && 
+                    y < cubesRef.current[z].length && 
+                    x < cubesRef.current[z][y].length) {
+                  
+                  const cube = cubesRef.current[z][y][x];
+                  
+                  if (result) {
+                    // Update cube color and make visible
+                    const hue = (x + y + z) / (3 * effectiveGridSize);
+                    (cube.material as THREE.MeshLambertMaterial).color.setHSL(hue, 0.7, 0.5);
+                    (cube.material as THREE.MeshLambertMaterial).opacity = 1;
+                  }
+                }
+              } catch (cellError) {
+                console.error(
+                  `Canvas3D: Error executing draw for cell (${x}, ${y}, ${z}):`,
+                  cellError,
+                );
+              }
+            }
+          }
+        }
+        
+        console.log('Canvas3D: Cell loop finished.');
+        
       } catch (error) {
-        console.error('Canvas: Error during Python execution:', error);
+        console.error('Canvas3D: Error during Python execution:', error);
       } finally {
-        console.log('Canvas: Python execution finished. Calling onRunComplete.');
+        console.log('Canvas3D: Python execution finished. Calling onRunComplete.');
         isExecutingRef.current = false;
         onRunComplete?.();
       }
     };
-
+    
     executePythonDrawing();
   }, [
-    // Dependencies remain largely the same, but their interpretation changes behavior
     shouldRun,
     pythonInterpreter,
     pythonCode,
-    width,
-    height,
-    gridSize, // gridSize change now recalculates cell sizes
-    showGrid,
+    effectiveGridSize,
     onRunComplete,
   ]);
-
+  
   return (
-    <canvas
-      ref={canvasRef}
-      width={width}
-      height={height}
-      style={{ border: '1px solid #ccc' }}
+    <div 
+      ref={containerRef} 
+      style={{ 
+        width: `${width}px`, 
+        height: `${height}px`, 
+        border: '1px solid #ccc' 
+      }}
     />
   );
 };

@@ -1,6 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'; // Added useRef
-import { ArrowRight, LoaderCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect } from 'react'; // Added useRef
 import CodeEditor from '../components/CodeEditor';
 import Canvas from '../components/Canvas'; // Assuming Canvas is updated for Python
 import GridControls from '../components/GridControls';
@@ -21,7 +19,7 @@ const DEFAULT_PYTHON_CODE = `# Define a function to draw based on coordinates
 # Return True (or any truthy value) to color the pixel,
 # False (or any falsy value like None, 0) to leave it transparent
 
-def draw(X, Y, WIDTH, HEIGHT):
+def draw(X, Y, Z, GRID_SIZE):
   return True
 `;
 
