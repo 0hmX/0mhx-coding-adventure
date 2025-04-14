@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -108,7 +109,10 @@ const Index = () => {
           </div>
         </ResizablePanel>
         
-        <ResizableHandle withHandle />
+        <ResizableHandle 
+          withHandle 
+          className="bg-white/10 hover:bg-white/20 transition-colors duration-200" 
+        />
         
         <ResizablePanel defaultSize={50} minSize={30}>
           <div className="h-full relative rounded-xl overflow-hidden border border-white/10 bg-white/5">
