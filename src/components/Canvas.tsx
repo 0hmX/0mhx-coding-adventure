@@ -335,7 +335,6 @@ const Canvas: React.FC<CanvasProps> = ({
       style={{ 
         width: `${width}px`, 
         height: `${height}px`, 
-        border: '1px solid #ccc' 
       }}
     />
   );

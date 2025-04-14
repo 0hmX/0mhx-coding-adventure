@@ -3,17 +3,13 @@ import ace from 'ace-builds';
 
 // --- Import necessary modes and theme ---
 import 'ace-builds/src-noconflict/mode-python';
-// import 'ace-builds/src-noconflict/mode-lua'; // Added Lua for example
 import 'ace-builds/src-noconflict/theme-monokai';
 import 'ace-builds/src-noconflict/ext-language_tools';
-// Optional: Import worker files if needed
-// import 'ace-builds/src-noconflict/worker-python';
 
 interface CodeEditorProps {
   initialValue: string;
   onChange: (value: string) => void;
-  language: string; // e.g., "python", "lua"
-  // Add other Ace options as props if you want them configurable
+  language: string;
   theme?: string;
   fontSize?: number;
   readOnly?: boolean;
@@ -25,15 +21,15 @@ const CodeEditor: React.FC<CodeEditorProps> = memo(
     initialValue,
     onChange,
     language,
-    theme = 'ace/theme/monokai', // Default theme
-    fontSize = 14, // Default font size
-    readOnly = false, // Default readOnly state
+    theme = 'ace/theme/monokai',
+    fontSize = 20,
+    readOnly = false,
   }) => {
     const editorRef = useRef<HTMLDivElement>(null);
     // @ts-ignore
     const aceEditorRef = useRef<ace.Ace.Editor | null>(null);
     const onChangeRef = useRef(onChange);
-    const isInitializingRef = useRef(true); // Flag to manage initial value setting
+    const isInitializingRef = useRef(true);
 
     // Keep onChangeRef updated without causing re-renders of effects using it
     useEffect(() => {
@@ -42,19 +38,70 @@ const CodeEditor: React.FC<CodeEditorProps> = memo(
 
     // --- Effect for Editor Initialization (Runs only ONCE on mount) ---
     useEffect(() => {
-      if (!editorRef.current) return; // Should not happen if div exists
+      if (!editorRef.current) return;
 
-      // Ensure Ace is loaded - sometimes needed in certain environments
       if (!ace) {
         console.error('Ace editor instance not found.');
         return;
       }
 
-      // Prevent re-initialization if already done
       if (aceEditorRef.current) return;
 
       console.log('CodeEditor: Initializing Ace Editor...');
-      isInitializingRef.current = true; // Set flag before setting value
+      isInitializingRef.current = true;
+
+      // Add custom CSS for Ghibli theme
+      const style = document.createElement('style');
+      style.id = 'ace-ghibli-style';
+      style.innerHTML = `
+        .ace_editor {
+          font-family: 'VT323', 'Courier New', monospace !important;
+          background-color: rgba(51, 41, 32, 0.95) !important;
+          line-height: 1.5 !important;
+        }
+        .ace_line {
+          padding-top: 2px !important;
+          padding-bottom: 2px !important;
+        }
+        .ace_gutter {
+          background-color: rgba(73, 55, 36, 0.8) !important;
+          color: #d2b48c !important;
+          padding-right: 8px !important;
+        }
+        .ace_cursor {
+          color: #ffefd5 !important;
+        }
+        .ace_marker-layer .ace_selection {
+          background: rgba(139, 69, 19, 0.4) !important;
+        }
+        .ace_comment {
+          color: #a89a85 !important;
+        }
+        .ace_keyword {
+          color: #e6a272 !important;
+          font-weight: bold;
+        }
+        .ace_string {
+          color: #b4da82 !important;
+        }
+        .ace_numeric {
+          color: #9ddcff !important;
+        }
+        .ace_function {
+          color: #ffb870 !important;
+        }
+        .ace_operator {
+          color: #ffd39b !important;
+        }
+      `;
+      document.head.appendChild(style);
+
+      // Load pixelated font
+      const fontLink = document.createElement('link');
+      fontLink.id = 'pixelated-font';
+      fontLink.rel = 'stylesheet';
+      fontLink.href = 'https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap';
+      document.head.appendChild(fontLink);
 
       aceEditorRef.current = ace.edit(editorRef.current);
       const editor = aceEditorRef.current;
@@ -68,7 +115,7 @@ const CodeEditor: React.FC<CodeEditorProps> = memo(
         enableSnippets: true,
         showLineNumbers: true,
         tabSize: 2,
-        useWorker: false, // Set true only if workers are correctly configured
+        useWorker: false,
         fontSize: fontSize,
         showGutter: true,
         highlightActiveLine: true,
@@ -76,15 +123,15 @@ const CodeEditor: React.FC<CodeEditorProps> = memo(
         showPrintMargin: false,
         scrollPastEnd: false,
         readOnly: readOnly,
+        fontFamily: "'Press Start 2P', 'VT323', monospace",
       });
 
       // Set the initial value ONLY during initialization
-      editor.setValue(initialValue, -1); // Move cursor to the start
+      editor.setValue(initialValue, -1);
 
-      isInitializingRef.current = false; // Clear flag after setting initial value
+      isInitializingRef.current = false;
 
       const changeListener = () => {
-        // Avoid calling onChange during the initial setValue
         if (aceEditorRef.current && !isInitializingRef.current) {
           onChangeRef.current(aceEditorRef.current.getValue());
         }
@@ -103,72 +150,77 @@ const CodeEditor: React.FC<CodeEditorProps> = memo(
         resizeObserver.disconnect();
         if (editor) {
           editor.off('change', changeListener);
-          editor.destroy(); // This is the primary cleanup method
-          // The container node is destroyed, manual deletion is usually not needed
+          editor.destroy();
         }
-        aceEditorRef.current = null; // Clear the ref
+        aceEditorRef.current = null;
+        
+        // Remove custom styles
+        const customStyle = document.getElementById('ace-ghibli-style');
+        if (customStyle) {
+          customStyle.remove();
+        }
+        
+        // Remove font link
+        const fontLinkElem = document.getElementById('pixelated-font');
+        if (fontLinkElem) {
+          fontLinkElem.remove();
+        }
       };
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // <-- EMPTY dependency array: Run only once on mount
+    }, []);
 
-    // --- Effect to handle EXTERNAL changes to initialValue (Optional) ---
-    // This effect allows the parent to programmatically reset the editor's
-    // content by changing the initialValue prop AFTER the initial mount.
-    // Be cautious with this, as it can conflict with user input if not managed carefully.
+    // Rest of the effects remain the same
     useEffect(() => {
       if (aceEditorRef.current && !isInitializingRef.current) {
         const currentValue = aceEditorRef.current.getValue();
-        // Only update if the prop value is different from the current editor value
         if (initialValue !== currentValue) {
           console.log(
             'CodeEditor: Received new initialValue prop, updating editor.',
           );
-          // Set flag to prevent onChange during this programmatic change
           isInitializingRef.current = true;
           aceEditorRef.current.setValue(initialValue, -1);
           isInitializingRef.current = false;
         }
       }
-      // This effect should run when initialValue changes *after* mount
     }, [initialValue]);
 
-    // --- Effect to handle language prop changes ---
     useEffect(() => {
       if (aceEditorRef.current) {
         console.log(`CodeEditor: Setting mode to ace/mode/${language}`);
         aceEditorRef.current.session.setMode(`ace/mode/${language}`);
       }
-    }, [language]); // Re-run only when language changes
+    }, [language]);
 
-    // --- Effect to handle theme prop changes ---
     useEffect(() => {
       if (aceEditorRef.current) {
         console.log(`CodeEditor: Setting theme to ${theme}`);
         aceEditorRef.current.setTheme(theme);
       }
-    }, [theme]); // Re-run only when theme changes
+    }, [theme]);
 
-    // --- Effect to handle fontSize prop changes ---
     useEffect(() => {
       if (aceEditorRef.current) {
         console.log(`CodeEditor: Setting font size to ${fontSize}`);
         aceEditorRef.current.setFontSize(fontSize);
       }
-    }, [fontSize]); // Re-run only when fontSize changes
+    }, [fontSize]);
 
-    // --- Effect to handle readOnly prop changes ---
     useEffect(() => {
       if (aceEditorRef.current) {
         console.log(`CodeEditor: Setting readOnly to ${readOnly}`);
         aceEditorRef.current.setReadOnly(readOnly);
       }
-    }, [readOnly]); // Re-run only when readOnly changes
+    }, [readOnly]);
 
     return (
       <div
         ref={editorRef}
-        className="absolute inset-0 h-full w-full" // Ensure parent has relative positioning
-        style={{ minHeight: '100px' }} // Example: Ensure minimum height
+        className="absolute inset-0 h-full w-full"
+        style={{ 
+          minHeight: '100px',
+          border: '2px solid rgba(139, 69, 19, 0.5)',
+          borderRadius: '4px',
+          boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.2)'
+        }}
       ></div>
     );
   },

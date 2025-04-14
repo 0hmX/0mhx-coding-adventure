@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'; // Added useRef
+import { useState, useEffect } from 'react';
 import CodeEditor from '../components/CodeEditor';
-import Canvas from '../components/Canvas'; // Assuming Canvas is updated for Python
-import GridControls from '../components/GridControls';
+import Canvas from '../components/Canvas';
 import Navbar from '../components/Navbar';
 import {
   ResizablePanelGroup,
@@ -10,60 +9,53 @@ import {
 } from '@/components/ui/resizable';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-import { jsPython, Interpreter } from 'jspython-interpreter'; // Import js-python
+import { jsPython, Interpreter } from 'jspython-interpreter';
 
-// Default Python code with a circle example
+// Default Python code with a simple example
 const DEFAULT_PYTHON_CODE = `# Define a function to draw based on coordinates
-# X and Y are the current coordinates (0-based)
-# WIDTH and HEIGHT are the canvas dimensions
-# Return True (or any truthy value) to color the pixel,
-# False (or any falsy value like None, 0) to leave it transparent
+# X, Y, and Z are the current coordinates (0-based)
+# GRID_SIZE is the size of the grid
+# Return True to color the pixel, False to leave it transparent
 
 def draw(X, Y, Z, GRID_SIZE):
-  return True
+  # Create a simple 3D shape
+  if X + Y + Z <= GRID_SIZE:
+    return True
+  return False
 `;
 
 const Index = () => {
-  // State for Python code instead of Lua
+  // State management
   const [pythonCode, setPythonCode] = useState(DEFAULT_PYTHON_CODE);
   const [gridSize, setGridSize] = useState(10);
   const [showGrid, setShowGrid] = useState(true);
   const [canvasWidth, setCanvasWidth] = useState(500);
   const [canvasHeight, setCanvasHeight] = useState(500);
-  // State to hold the js-python interpreter instance
-  const [pythonInterpreter, setPythonInterpreter] = useState<Interpreter | null>(
-    null,
-  );
+  const [pythonInterpreter, setPythonInterpreter] = useState<Interpreter | null>(null);
   const [isRunning, setIsRunning] = useState(false);
-  const [shouldRun, setShouldRun] = useState(false); // Flag to trigger canvas update
+  const [shouldRun, setShouldRun] = useState(false);
   const isMobile = useIsMobile();
 
   // Initialize the js-python interpreter on component mount
   useEffect(() => {
     console.log('Initializing js-python interpreter...');
-    // Create the interpreter instance
     const interp = jsPython();
-    setPythonInterpreter(interp); // Store the instance in state
+    setPythonInterpreter(interp);
     console.log('js-python interpreter initialized.');
 
-    // Cleanup function to run when the component unmounts
     return () => {
       console.log('Cleaning up js-python interpreter...');
-      interp.cleanUp(); // Clean up resources used by the interpreter
+      interp.cleanUp();
       setPythonInterpreter(null);
     };
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []);
 
   const handleCodeChange = (newCode: string) => {
     setPythonCode(newCode);
-    // Optionally, you could trigger a re-run automatically on code change
-    // handleRunCode();
   };
 
   const handleGridSizeChange = (size: number) => {
     setGridSize(size);
-    // Optionally trigger re-run if desired when grid changes
-    // handleRunCode();
   };
 
   const handleShowGridChange = (show: boolean) => {
@@ -73,67 +65,87 @@ const Index = () => {
   const handleCanvasSizeChange = (width: number, height: number) => {
     setCanvasWidth(width);
     setCanvasHeight(height);
-    // Optionally trigger re-run if desired when canvas size changes
-    // handleRunCode();
   };
 
-  // Trigger the execution flag
   const handleRunCode = () => {
     if (!pythonInterpreter) {
       console.error('Python interpreter not initialized yet.');
-      return; // Don't run if interpreter isn't ready
+      return;
     }
     console.log('Run button clicked, setting shouldRun=true');
-    setIsRunning(true); // Show loading state
-    setShouldRun(true); // Signal the Canvas to execute
+    setIsRunning(true);
+    setShouldRun(true);
 
-    // Simulate execution time / wait for Canvas to potentially finish
-    // In a real scenario, Canvas might provide a callback when done.
-    // For now, just reset the loading indicator after a delay.
     setTimeout(() => {
       setIsRunning(false);
-      // Important: Reset shouldRun *after* Canvas has had a chance to react.
-      // This might need adjustment depending on how Canvas handles the prop.
-      // Setting it false here might be too soon if Canvas runs async.
-      // A better approach is for Canvas to call a 'onRunComplete' prop.
-      // setShouldRun(false); // Let Canvas reset this or use a callback
-    }, 500); // Adjust delay as needed
+    }, 500);
   };
 
-  // Callback for Canvas to signal completion (Optional but recommended)
   const handleRunComplete = () => {
     console.log('Canvas reported run complete, setting shouldRun=false');
-    setShouldRun(false); // Reset the trigger flag
-    // isRunning might already be false due to setTimeout, or reset it here too
+    setShouldRun(false);
     setIsRunning(false);
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-background p-4">
-      {/* Pass isRunning state to Navbar */}
-      <Navbar onRunCode={handleRunCode} isRunning={isRunning} />
+    <div 
+      className="min-h-screen w-screen overflow-hidden p-4"
+      style={{
+        backgroundImage: 'url("/bg.png")',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Ghibli-style header */}
+      <div className="mb-4 text-center">
+        <h1 className="text-4xl font-bold text-amber-800" style={{ 
+          fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
+          textShadow: '1px 1px 2px rgba(0,0,0,0.3)'
+        }}>
+          Created By 0hmX
+        </h1>
+      </div>
+
+      {/* Navbar with Ghibli styling */}
+      <div className="mb-4">
+        <Navbar 
+          onRunCode={handleRunCode} 
+          isRunning={isRunning} 
+        />
+      </div>
 
       <ResizablePanelGroup
         direction={isMobile ? 'vertical' : 'horizontal'}
-        // Adjust height calculation if Navbar height changes
-        className="h-[calc(100%-64px)] w-full"
+        className="h-[calc(100vh-180px)] w-full rounded-xl overflow-hidden"
+        style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}
       >
         <ResizablePanel defaultSize={50} minSize={30}>
           <div
             className={cn(
-              'flex h-full flex-col overflow-hidden rounded-xl border border-white/10 bg-white/5',
+              'flex h-full flex-col overflow-hidden rounded-xl border',
               isMobile
-                ? 'rounded-bl-none border-b-0'
-                : 'rounded-tr-none border-r-0',
+                ? 'rounded-bl-none'
+                : 'rounded-tr-none',
             )}
+            style={{ 
+              backgroundColor: 'rgba(255, 248, 220, 0.85)',
+              borderColor: 'rgba(139, 69, 19, 0.5)'
+            }}
           >
-            <div className="flex items-center justify-between border-b border-white/10 bg-white/5 p-4">
-              {/* Update title */}
-              <h2 className="text-lg font-semibold">Python Editor</h2>
+            <div className="flex items-center justify-between p-4" style={{ 
+              borderBottom: '1px solid rgba(139, 69, 19, 0.3)',
+              backgroundColor: 'rgba(210, 180, 140, 0.5)'
+            }}>
+              <h2 className="text-lg font-semibold text-amber-900" style={{ 
+                fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, serif' 
+              }}>
+                Python Editor
+              </h2>
             </div>
             <div className="relative flex-grow">
               <CodeEditor
-                language="python" // Set language for syntax highlighting
+                language="python"
                 initialValue={pythonCode}
                 onChange={handleCodeChange}
               />
@@ -143,41 +155,80 @@ const Index = () => {
 
         <ResizableHandle
           withHandle
-          className="bg-white/10 transition-colors duration-200 hover:bg-white/20"
+          className="transition-colors duration-200"
+          style={{ 
+            backgroundColor: 'rgba(139, 69, 19, 0.3)',
+          }}
         />
 
         <ResizablePanel defaultSize={50} minSize={30}>
           <div
             className={cn(
-              'relative h-full overflow-hidden rounded-xl border border-white/10 bg-white/5',
+              'relative h-full overflow-hidden rounded-xl border',
               isMobile
-                ? 'rounded-tr-none border-t-0'
-                : 'rounded-tl-none border-l-0',
+                ? 'rounded-tr-none'
+                : 'rounded-tl-none',
             )}
+            style={{ 
+              backgroundColor: 'rgba(255, 248, 220, 0.85)',
+              borderColor: 'rgba(139, 69, 19, 0.5)'
+            }}
           >
-            <div className="flex h-full items-center justify-center">
-              {/* Pass Python related props to Canvas */}
-              <Canvas
-                width={canvasWidth}
-                height={canvasHeight}
-                gridSize={gridSize}
-                showGrid={showGrid}
-                pythonCode={pythonCode} // Pass Python code
-                pythonInterpreter={pythonInterpreter} // Pass interpreter instance
-                shouldRun={shouldRun} // Pass trigger flag
-                onRunComplete={handleRunComplete} // Pass completion callback
-              />
+            <div className="flex h-full flex-col">
+              <div className="flex-grow flex items-center justify-center overflow-hidden">
+                <Canvas
+                  width={canvasWidth}
+                  height={canvasHeight}
+                  gridSize={gridSize}
+                  showGrid={showGrid}
+                  pythonCode={pythonCode}
+                  pythonInterpreter={pythonInterpreter}
+                  shouldRun={shouldRun}
+                  onRunComplete={handleRunComplete}
+                />
+              </div>
+              <div 
+                className="w-full flex-shrink-0 mt-auto"
+                style={{ 
+                  backgroundColor: 'rgba(210, 180, 140, 0.85)',
+                  borderTop: '1px solid rgba(139, 69, 19, 0.5)',
+                  padding: '12px',
+                  minHeight: '60px'
+                }}
+              >
+                <div className="flex justify-center items-center gap-8 text-black">
+                  <div className="flex items-center">
+                    <label className="text-amber-900 font-semibold mr-2" style={{ 
+                      fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
+                      color: '#5D3A1A'
+                    }}>
+                      Grid Size
+                    </label>
+                    <input 
+                      type="number" 
+                      value={gridSize}
+                      onChange={(e) => handleGridSizeChange(parseInt(e.target.value) || 10)}
+                      className="w-16 px-2 py-1 rounded border border-amber-700 bg-amber-50"
+                    />
+                  </div>
+                  <div className="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      id="showGrid"
+                      checked={showGrid}
+                      onChange={(e) => handleShowGridChange(e.target.checked)}
+                      className="mr-2 h-4 w-4 accent-amber-700"
+                    />
+                    <label htmlFor="showGrid" className="text-amber-900 font-semibold" style={{ 
+                      fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
+                      color: '#5D3A1A'
+                    }}>
+                      Show Grid
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
-            {/* GridControls remains the same */}
-            <GridControls
-              gridSize={gridSize}
-              showGrid={showGrid}
-              onGridSizeChange={handleGridSizeChange}
-              onShowGridChange={handleShowGridChange}
-              canvasWidth={canvasWidth}
-              canvasHeight={canvasHeight}
-              onCanvasSizeChange={handleCanvasSizeChange}
-            />
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
