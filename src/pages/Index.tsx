@@ -169,16 +169,6 @@ const Index = () => {
                 borderColor: 'rgba(139, 69, 19, 0.5)'
               }}
             >
-              <div className="flex items-center justify-between p-4" style={{ 
-                borderBottom: '1px solid rgba(139, 69, 19, 0.3)',
-                backgroundColor: 'rgba(210, 180, 140, 0.5)'
-              }}>
-                <h2 className="text-lg font-semibold text-amber-900" style={{ 
-                  fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, serif' 
-                }}>
-                  Shit
-                </h2>
-              </div>
               <div className="relative flex-grow">
                 <CodeEditor
                   language="python"
@@ -270,16 +260,6 @@ const Index = () => {
                 borderColor: 'rgba(139, 69, 19, 0.5)'
               }}
             >
-              <div className="flex items-center justify-between p-4" style={{ 
-                borderBottom: '1px solid rgba(139, 69, 19, 0.3)',
-                backgroundColor: 'rgba(210, 180, 140, 0.5)'
-              }}>
-                <h2 className="text-lg font-semibold text-amber-900" style={{ 
-                  fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, serif' 
-                }}>
-                  Shit
-                </h2>
-              </div>
               <div className="relative flex-grow">
                 <CodeEditor
                   language="python"

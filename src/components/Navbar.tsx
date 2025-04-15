@@ -33,7 +33,7 @@ const Navbar = ({ onRunCode, isRunning }: NavbarProps) => {
           >
             <span className="relative z-10 flex items-center">
               <Sword className="h-4 w-4 mr-2" />
-              Battle Online
+              Comming Soon
             </span>
             <div 
               className="absolute inset-0 z-0" 
