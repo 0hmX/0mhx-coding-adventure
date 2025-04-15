@@ -1,73 +1,66 @@
-# Welcome to your Lovable project
+# Canvas Code Crafter
 
-## Project info
+A creative coding environment that allows you to write Python code and visualize 3D shapes in real-time using Three.js.
 
-**URL**: https://lovable.dev/projects/7f0c9d32-afc6-4b00-900d-17763860cd52
+## Overview
 
-## How can I edit this code?
+Canvas Code Crafter is an educational tool that combines Python programming with 3D visualization. It's designed to help learners explore programming concepts through interactive visual feedback.
 
-There are several ways of editing your application.
+## Features
 
-**Use Lovable**
+- Real-time Python code execution
+- 3D visualization using Three.js
+- Interactive grid system
+- Mobile-responsive design
+- Customizable canvas settings
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/7f0c9d32-afc6-4b00-900d-17763860cd52) and start prompting.
+## Usage
 
-Changes made via Lovable will be committed automatically to this repo.
+The application provides a split-screen interface with:
+- Code editor (left panel)
+- 3D visualization canvas (right panel)
+- Control panel for grid settings
+- Run button to execute your code
 
-**Use your preferred IDE**
+## Learning & Exploration
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+We encourage you to:
+- Use this code as a learning resource
+- Experiment with different programming concepts
+- Create your own versions and modifications
+- Share your learning experiences with others
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Bug Reports & Feature Requests
 
-Follow these steps:
+If you encounter any bugs or have ideas for new features:
+1. Create a new issue on our GitHub repository
+2. Provide a clear description of the bug/feature
+3. Include steps to reproduce (for bugs)
+4. Add relevant screenshots if applicable
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+**Note:** While we appreciate your interest, we are not accepting pull requests at this time. This project is primarily meant as a learning resource.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## Code of Conduct
 
-# Step 3: Install the necessary dependencies.
-npm i
+We maintain a zero-tolerance policy for:
+- Political discussions or content
+- Discriminatory language or behavior
+- Harassment of any kind
+- Off-topic debates
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+Please keep all interactions focused on the technical and educational aspects of the project.
 
-**Edit a file directly in GitHub**
+## License
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-**Use GitHub Codespaces**
+## Acknowledgments
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Special thanks to:
+- Three.js community
+- Python community
+- All contributors who have helped shape this educational tool
 
-## What technologies are used for this project?
+---
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/7f0c9d32-afc6-4b00-900d-17763860cd52) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Created with ❤️ by 0hmX
