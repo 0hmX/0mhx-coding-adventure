@@ -10,7 +10,7 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile';
 import { jsPython, Interpreter } from 'jspython-interpreter';
 import { Button } from '@/components/ui/button';
-import { Code, Cuboid } from 'lucide-react';
+import { Code, Cuboid, Play } from 'lucide-react'; // Add Play icon
 
 /**
  * @typedef {object} ThemeColors
@@ -114,7 +114,10 @@ const theme = {
  * Includes a function to determine pixel color based on 3D coordinates.
  * @type {string}
  */
-const DEFAULT_PYTHON_CODE = `
+const DEFAULT_PYTHON_CODE = 
+`# Copyright (c) 2023 0hmX
+# SPDX-License-Identifier: MIT
+
 def draw(X, Y, Z, GRID_SIZE):
   center = (GRID_SIZE - 1) / 2.0
   dist_from_center = sqrt(
@@ -273,15 +276,18 @@ const Index = () => {
         </h1>
       </div>
 
-      <div className="mb-4">
-        <Navbar onRunCode={handleRunCode} isRunning={isRunning} />
-      </div>
+      {/* Show Navbar only on desktop */}
+      {!isMobile && (
+        <div className="mb-4">
+          <Navbar onRunCode={handleRunCode} isRunning={isRunning} />
+        </div>
+      )}
 
+      {/* Mobile view controls */}
       {isMobile && (
-        <div className="mb-4 flex justify-center">
-          <Button
-            onClick={toggleMobileView}
-            className="rounded-full relative overflow-hidden"
+        <>
+          <div className="mb-4 flex justify-center">
+            <Button onClick={toggleMobileView} className="rounded-full relative overflow-hidden"
             style={{
               backgroundColor: theme.colors.primary,
               color: theme.colors.textPrimary,
@@ -291,22 +297,46 @@ const Index = () => {
               fontFamily: theme.fonts.primary,
               transition: 'all 0.2s ease',
             }}
+            >
+              <span className="flex items-center">
+                {mobileView === 'editor' ? (
+                  <>
+                    <Cuboid className="mr-2 h-4 w-4" />
+                    Switch to Canvas
+                  </>
+                ) : (
+                  <>
+                    <Code className="mr-2 h-4 w-4" />
+                    Switch to Editor
+                  </>
+                )}
+              </span>
+            </Button>
+          </div>
+
+          {/* Floating action button for run */}
+          <div
+            className="absolute bottom-16 right-6 z-50 animate-in fade-in duration-300"
+            style={{
+              filter: `drop-shadow(0 4px 8px ${theme.colors.shadow})`,
+              transform: 'scale(1.2)',
+            }}
           >
-            <span className="flex items-center">
-              {mobileView === 'editor' ? (
-                <>
-                  <Cuboid className="mr-2 h-4 w-4" />
-                  Switch to Canvas
-                </>
-              ) : (
-                <>
-                  <Code className="mr-2 h-4 w-4" />
-                  Switch to Editor
-                </>
-              )}
-            </span>
-          </Button>
-        </div>
+            <Button
+              onClick={handleRunCode}
+              disabled={isRunning}
+              className="h-16 w-16 rounded-full hover:scale-110 transition-transform"
+              style={{
+                backgroundColor: isRunning ? theme.colors.secondary : theme.colors.primary,
+                color: theme.colors.textPrimary,
+                border: `2px solid ${theme.colors.border}`,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+              }}
+            >
+              <Play className={`h-8 w-8 ${isRunning ? 'animate-pulse' : ''}`} />
+            </Button>
+          </div>
+        </>
       )}
 
       {isMobile ? (
