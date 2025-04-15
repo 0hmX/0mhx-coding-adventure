@@ -164,7 +164,8 @@ const Index = () => {
             <div
               className="flex h-full flex-col overflow-hidden rounded-xl border"
               style={{ 
-                backgroundColor: 'rgba(255, 248, 220, 0.85)',
+                backgroundColor: '#484118',
+                opacity: 0.9,
                 borderColor: 'rgba(139, 69, 19, 0.5)'
               }}
             >
@@ -175,7 +176,7 @@ const Index = () => {
                 <h2 className="text-lg font-semibold text-amber-900" style={{ 
                   fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, serif' 
                 }}>
-                  Python Editor
+                  Shit
                 </h2>
               </div>
               <div className="relative flex-grow">
@@ -190,7 +191,8 @@ const Index = () => {
             <div
               className="relative h-full overflow-hidden rounded-xl border"
               style={{ 
-                backgroundColor: 'rgba(255, 248, 220, 0.85)',
+                backgroundColor: '#484118',
+                opacity: 0.9,
                 borderColor: 'rgba(139, 69, 19, 0.5)'
               }}
             >
@@ -263,7 +265,8 @@ const Index = () => {
             <div
               className="flex h-full flex-col overflow-hidden rounded-xl border rounded-tr-none"
               style={{ 
-                backgroundColor: 'rgba(255, 248, 220, 0.85)',
+                backgroundColor: '#484118',
+                opacity: 0.9,
                 borderColor: 'rgba(139, 69, 19, 0.5)'
               }}
             >
@@ -274,7 +277,7 @@ const Index = () => {
                 <h2 className="text-lg font-semibold text-amber-900" style={{ 
                   fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, serif' 
                 }}>
-                  Python Editor
+                  Shit
                 </h2>
               </div>
               <div className="relative flex-grow">
@@ -299,7 +302,8 @@ const Index = () => {
             <div
               className="relative h-full overflow-hidden rounded-xl border rounded-tl-none"
               style={{ 
-                backgroundColor: 'rgba(255, 248, 220, 0.85)',
+                backgroundColor: '#484118',
+                opacity: 0.9,
                 borderColor: 'rgba(139, 69, 19, 0.5)'
               }}
             >
