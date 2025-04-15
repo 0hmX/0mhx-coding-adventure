@@ -93,6 +93,52 @@ const CodeEditor: React.FC<CodeEditorProps> = memo(
         .ace_operator {
           color: #ffd39b !important;
         }
+        
+        /* VS Code-like scrollbar styles */
+        .ace_scrollbar {
+          width: 14px !important;
+        }
+        .ace_scrollbar::-webkit-scrollbar {
+          width: 14px !important;
+          height: 14px !important;
+        }
+        .ace_scrollbar::-webkit-scrollbar-thumb {
+          background-color: rgba(121, 82, 50, 0.2) !important;
+          border-radius: 0px !important;
+          border: 3px solid rgba(51, 41, 32, 0.95) !important;
+        }
+        .ace_scrollbar::-webkit-scrollbar-thumb:hover {
+          background-color: rgba(139, 69, 19, 0.7) !important;
+        }
+        .ace_scrollbar::-webkit-scrollbar-thumb:active {
+          background-color: rgba(139, 69, 19, 0.9) !important;
+          border: 2px solid rgba(51, 41, 32, 0.95) !important;
+        }
+        .ace_scrollbar::-webkit-scrollbar-track {
+          background: transparent !important;
+        }
+        .ace_scrollbar::-webkit-scrollbar-track:hover {
+          background: rgba(73, 55, 36, 0.1) !important;
+        }
+        .ace_scrollbar::-webkit-scrollbar-track:active {
+          background: rgba(73, 55, 36, 0.2) !important;
+        }
+        .ace_scrollbar::-webkit-scrollbar-corner {
+          background: transparent !important;
+        }
+        
+        /* Horizontal scrollbar */
+        .ace_scrollbar-h {
+          height: 14px !important;
+        }
+        .ace_scrollbar-h::-webkit-scrollbar {
+          height: 14px !important;
+        }
+        
+        /* Scrollbar position indicator */
+        .ace_scrollbar-v .ace_scrollbar-inner {
+          background-color: rgba(139, 69, 19, 0.3) !important;
+        }
       `;
       document.head.appendChild(style);
 
