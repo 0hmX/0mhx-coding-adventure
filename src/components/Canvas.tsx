@@ -4,7 +4,16 @@ import * as THREE from 'three';
 // @ts-ignore
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
-// Global context to preserve canvas state between renders
+/**
+ * Global context interface for preserving Three.js canvas state between renders
+ * @typedef {Object} CanvasGlobalContext
+ * @property {THREE.Scene | null} scene - The Three.js scene
+ * @property {THREE.WebGLRenderer | null} renderer - The WebGL renderer
+ * @property {THREE.PerspectiveCamera | null} camera - The camera view
+ * @property {OrbitControls | null} controls - Orbit controls for camera manipulation
+ * @property {Array<Array<Array<THREE.Mesh>>>} cubes - 3D array of cube meshes
+ * @property {boolean} initialized - Whether the canvas has been initialized
+ */
 interface CanvasGlobalContext {
   scene: THREE.Scene | null;
   renderer: THREE.WebGLRenderer | null;
@@ -26,6 +35,18 @@ if (typeof window !== 'undefined' && !window.canvasGlobalContext) {
   };
 }
 
+/**
+ * Props interface for the Canvas component
+ * @typedef {Object} CanvasProps
+ * @property {number} width - Width of the canvas in pixels
+ * @property {number} height - Height of the canvas in pixels
+ * @property {number} gridSize - Size of the 3D grid (gridSize x gridSize x gridSize)
+ * @property {boolean} showGrid - Whether to display the grid helper
+ * @property {string} pythonCode - Python code to be executed for drawing
+ * @property {Interpreter | null} pythonInterpreter - Python interpreter instance
+ * @property {boolean} shouldRun - Flag to trigger code execution
+ * @property {(error?: Error) => void} onRunComplete - Callback when execution completes
+ */
 interface CanvasProps {
   width: number;
   height: number;
@@ -34,9 +55,13 @@ interface CanvasProps {
   pythonCode: string;
   pythonInterpreter: Interpreter | null;
   shouldRun: boolean;
-  onRunComplete: (error?: Error) => void; // Updated to accept an error parameter
+  onRunComplete: (error?: Error) => void;
 }
 
+/**
+ * Context object containing built-in functions and constants available to Python code
+ * @type {Object.<string, any>}
+ */
 const context = {
   "True": true,
   "False": false,
@@ -74,8 +99,14 @@ const context = {
   "SQRT1_2": Math.SQRT1_2,
   "SQRT2": Math.SQRT2,
   "mod": (x: number, y: number) => x % y,
-}
+};
 
+/**
+ * A 3D canvas component that renders a grid of cubes controlled by Python code
+ * @component
+ * @param {CanvasProps} props - Component properties
+ * @returns {JSX.Element} Rendered canvas container
+ */
 const Canvas: React.FC<CanvasProps> = ({
   width,
   height,
@@ -86,70 +117,73 @@ const Canvas: React.FC<CanvasProps> = ({
   shouldRun = false,
   onRunComplete,
 }) => {
+  /** Reference to the canvas container element */
   const containerRef = useRef<HTMLDivElement>(null);
+  /** Reference to the grid helper object */
   const gridHelperRef = useRef<THREE.GridHelper | null>(null);
+  /** Flag to track if Python code is currently executing */
   const isExecutingRef = useRef(false);
 
-  // --- Calculate grid dimensions ---
+  // Calculate effective grid size
   const effectiveGridSize = Math.max(1, Math.floor(gridSize));
-  
+
   // Initialize Three.js scene
   useEffect(() => {
     if (!containerRef.current) return;
-    
+
     const globalContext = window.canvasGlobalContext;
-    
+
     // If we already have a renderer, just reattach it
     if (globalContext.initialized && globalContext.renderer) {
       containerRef.current.appendChild(globalContext.renderer.domElement);
-      
+
       // Update renderer size
       globalContext.renderer.setSize(width, height);
-      
+
       // Update camera aspect ratio
       if (globalContext.camera) {
         globalContext.camera.aspect = width / height;
         globalContext.camera.updateProjectionMatrix();
       }
-      
+
       return;
     }
-    
+
     // Create scene
     const scene = new THREE.Scene();
     // Change background to a softer Ghibli-inspired color
     scene.background = new THREE.Color(0xE6DDC6); // Warm parchment color for Ghibli style
     globalContext.scene = scene;
-    
+
     // Create camera
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     // Position camera to center on the grid
     const gridCenter = effectiveGridSize / 2;
     camera.position.set(
-      gridCenter, 
-      gridCenter, 
+      gridCenter,
+      gridCenter,
       effectiveGridSize * 1.8
     );
     camera.lookAt(gridCenter, gridCenter, gridCenter);
     globalContext.camera = camera;
-    
+
     // Create renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
     containerRef.current.appendChild(renderer.domElement);
     globalContext.renderer = renderer;
-    
+
     // Add orbit controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.25;
     globalContext.controls = controls;
-    
+
     // Add axes helper
     const axesHelper = new THREE.AxesHelper(effectiveGridSize);
     axesHelper.position.set(0, 1, 0);
     scene.add(axesHelper);
-    
+
     // Add axis labels
     const createAxisLabel = (text: string, position: THREE.Vector3, color: string) => {
       const canvas = document.createElement('canvas');
@@ -164,7 +198,7 @@ const Canvas: React.FC<CanvasProps> = ({
         context.textAlign = 'center';
         context.textBaseline = 'middle';
         context.fillText(text, canvas.width / 2, canvas.height / 2);
-        
+
         const texture = new THREE.CanvasTexture(canvas);
         const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
         const sprite = new THREE.Sprite(material);
@@ -175,12 +209,12 @@ const Canvas: React.FC<CanvasProps> = ({
       }
       return null;
     };
-    
+
     // Create axis labels
     const xLabel = createAxisLabel('X', new THREE.Vector3(effectiveGridSize + 0.5, 0, 0), '#ff0000');
     const yLabel = createAxisLabel('Y', new THREE.Vector3(0, effectiveGridSize + 0.5, 0), '#00ff00');
     const zLabel = createAxisLabel('Z', new THREE.Vector3(0, 0, effectiveGridSize + 0.5), '#0000ff');
-    
+
     // Setup raycaster for hover effects
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -199,29 +233,29 @@ const Canvas: React.FC<CanvasProps> = ({
     if (containerRef.current) {
       containerRef.current.appendChild(tooltipDiv);
     }
-    
+
     // Add mouse move event listener
     const onMouseMove = (event: MouseEvent) => {
       if (!containerRef.current || !globalContext.renderer || !globalContext.camera || !globalContext.scene) return;
-      
+
       const rect = containerRef.current.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / height) * 2 + 1;
-      
+
       raycaster.setFromCamera(mouse, globalContext.camera);
       const intersects = raycaster.intersectObjects(globalContext.scene.children, true);
-      
+
       if (intersects.length > 0) {
         const intersect = intersects[0];
         if (intersect.object instanceof THREE.Mesh) {
           const position = intersect.object.position;
           tooltipDiv.textContent = `Position: (${Math.floor(position.x)}, ${Math.floor(position.y)}, ${Math.floor(position.z)})`;
-          
+
           // Fix tooltip positioning to follow mouse cursor
           const canvasRect = containerRef.current.getBoundingClientRect();
           const mouseX = event.clientX - canvasRect.left;
           const mouseY = event.clientY - canvasRect.top;
-          
+
           tooltipDiv.style.left = `${mouseX + 10}px`;
           tooltipDiv.style.top = `${mouseY + 10}px`;
           tooltipDiv.style.display = 'block';
@@ -232,18 +266,18 @@ const Canvas: React.FC<CanvasProps> = ({
         tooltipDiv.style.display = 'none';
       }
     };
-    
+
     containerRef.current.addEventListener('mousemove', onMouseMove);
-    
+
     // Add ambient light
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
-    
+
     // Add directional light
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(1, 1, 1);
     scene.add(directionalLight);
-    
+
     // Create grid helper if needed
     if (showGrid) {
       const gridHelper = new THREE.GridHelper(effectiveGridSize, effectiveGridSize, 0x8B4513, 0xD2B48C); // Brown and tan colors for grid
@@ -252,7 +286,7 @@ const Canvas: React.FC<CanvasProps> = ({
       scene.add(gridHelper);
       gridHelperRef.current = gridHelper;
     }
-    
+
     // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
@@ -260,34 +294,34 @@ const Canvas: React.FC<CanvasProps> = ({
       renderer.render(scene, camera);
     };
     animate();
-    
+
     // Mark as initialized
     globalContext.initialized = true;
-    
+
     // Cleanup function
     return () => {
       // Don't remove the renderer from the DOM on unmount
       // We'll reattach it on the next mount
-      
+
       // Just remove the renderer from the container
       if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
         containerRef.current.removeChild(renderer.domElement);
       }
-      
+
       // Don't dispose of resources, as we want to preserve them
     };
   }, [width, height, effectiveGridSize, showGrid]);
-  
+
   // Update grid visibility when showGrid changes
   useEffect(() => {
     const globalContext = window.canvasGlobalContext;
     if (!globalContext.scene) return;
-    
+
     if (gridHelperRef.current) {
       globalContext.scene.remove(gridHelperRef.current);
       gridHelperRef.current = null;
     }
-    
+
     if (showGrid) {
       const gridHelper = new THREE.GridHelper(effectiveGridSize, effectiveGridSize);
       // Center the grid helper
@@ -296,11 +330,11 @@ const Canvas: React.FC<CanvasProps> = ({
       gridHelperRef.current = gridHelper;
     }
   }, [showGrid, effectiveGridSize]);
-  
+
   // Effect for executing Python code
   useEffect(() => {
     const globalContext = window.canvasGlobalContext;
-    
+
     // --- Guard Clauses ---
     if (
       !shouldRun ||
@@ -317,48 +351,48 @@ const Canvas: React.FC<CanvasProps> = ({
       }
       return;
     }
-    
+
     const scene = globalContext.scene;
-    
+
     // --- Execution Logic ---
     const executePythonDrawing = async () => {
       if (isExecutingRef.current) return;
       isExecutingRef.current = true;
       console.log('Canvas3D: Starting Python execution.');
-      
+
       try {
         // 1. Parse Python code
         let parseAST = pythonInterpreter.parse(pythonCode);
-        
+
         // 2. Create a reusable geometry if it doesn't exist yet
         const geometry = new THREE.BoxGeometry(.9, .9, .9);
-        
+
         // 3. Initialize or reuse cubes array
         if (!globalContext.cubes.length) {
           // First run - create all cubes but make them invisible
           const newCubes: Array<Array<Array<THREE.Mesh>>> = [];
-          
+
           for (let z = 0; z < effectiveGridSize; z++) {
             newCubes[z] = [];
             for (let y = 0; y < effectiveGridSize; y++) {
               newCubes[z][y] = [];
               for (let x = 0; x < effectiveGridSize; x++) {
                 // Create cube with default material
-                const material = new THREE.MeshLambertMaterial({ 
+                const material = new THREE.MeshLambertMaterial({
                   color: 0xffffff,
                   transparent: true,
                   opacity: 0 // Start invisible
                 });
-                
+
                 const cube = new THREE.Mesh(geometry, material);
-                cube.position.set(x+.5, y+.5, z+.5);
+                cube.position.set(x + .5, y + .5, z + .5);
                 scene.add(cube);
-                
+
                 newCubes[z][y][x] = cube;
               }
             }
           }
-          
+
           globalContext.cubes = newCubes;
         }
         else {
@@ -380,28 +414,28 @@ const Canvas: React.FC<CanvasProps> = ({
             }
           }
         }
-        
+
         // 4. Update cube visibility and colors based on Python code
         let hasExecutionError = false;
         let executionError: Error | undefined;
-        
+
         for (let z = 0; z < effectiveGridSize; z++) {
           for (let y = 0; y < effectiveGridSize; y++) {
             for (let x = 0; x < effectiveGridSize; x++) {
               try {
                 const result = await pythonInterpreter.evalAsync(
-                  parseAST, 
-                  context, 
+                  parseAST,
+                  context,
                   ["draw", x, y, z, effectiveGridSize]
                 );
-                
+
                 // Make sure we have a cube at this position
-                if (z < globalContext.cubes.length && 
-                    y < globalContext.cubes[z].length && 
-                    x < globalContext.cubes[z][y].length) {
-                  
+                if (z < globalContext.cubes.length &&
+                  y < globalContext.cubes[z].length &&
+                  x < globalContext.cubes[z][y].length) {
+
                   const cube = globalContext.cubes[z][y][x];
-                  
+
                   if (result) {
                     // Update cube color and make visible using Ghibli-inspired palette
                     const ghibliColors = [
@@ -425,22 +459,22 @@ const Canvas: React.FC<CanvasProps> = ({
                 // Only capture the first error
                 if (!hasExecutionError) {
                   hasExecutionError = true;
-                  executionError = cellError instanceof Error 
-                    ? cellError 
+                  executionError = cellError instanceof Error
+                    ? cellError
                     : new Error(`Error at position (${x},${y},${z}): ${cellError}`);
                 }
               }
             }
           }
         }
-        
+
         console.log('Canvas3D: Cell loop finished.');
-        
+
         // If we had any execution errors, throw the first one
         if (hasExecutionError && executionError) {
           throw executionError;
         }
-        
+
       } catch (error) {
         console.error('Canvas3D: Error during Python execution:', error);
         // Pass the error to the parent component
@@ -450,11 +484,11 @@ const Canvas: React.FC<CanvasProps> = ({
         console.log('Canvas3D: Python execution finished.');
         isExecutingRef.current = false;
       }
-      
+
       // Only call onRunComplete without error if we didn't have any errors
       onRunComplete();
     };
-    
+
     executePythonDrawing();
   }, [
     shouldRun,
@@ -463,19 +497,21 @@ const Canvas: React.FC<CanvasProps> = ({
     effectiveGridSize,
     onRunComplete,
   ]);
-  
+
   return (
-    <div 
-      ref={containerRef} 
-      style={{ 
-        width: `${width}px`, 
-        height: `${height}px`, 
+    <div
+      ref={containerRef}
+      style={{
+        width: `${width}px`,
+        height: `${height}px`,
       }}
     />
   );
 };
 
-// Add TypeScript declaration for the global context
+/**
+ * TypeScript declaration for the global context
+ */
 declare global {
   interface Window {
     canvasGlobalContext: CanvasGlobalContext;

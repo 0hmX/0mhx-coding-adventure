@@ -6,16 +6,31 @@ import 'ace-builds/src-noconflict/mode-python';
 import 'ace-builds/src-noconflict/theme-monokai';
 import 'ace-builds/src-noconflict/ext-language_tools';
 
+/**
+ * Props interface for the CodeEditor component
+ * @interface CodeEditorProps
+ */
 interface CodeEditorProps {
+  /** Initial code value for the editor */
   initialValue: string;
+  /** Callback function triggered when editor content changes */
   onChange: (value: string) => void;
+  /** Programming language for syntax highlighting */
   language: string;
+  /** Editor theme name */
   theme?: string;
+  /** Font size in pixels */
   fontSize?: number;
+  /** Whether the editor is in read-only mode */
   readOnly?: boolean;
 }
 
-// Wrap component with React.memo
+/**
+ * A memoized code editor component using Ace Editor
+ * @component
+ * @param {CodeEditorProps} props - Component props
+ * @returns {JSX.Element} Rendered code editor
+ */
 const CodeEditor: React.FC<CodeEditorProps> = memo(
   ({
     initialValue,
@@ -25,18 +40,27 @@ const CodeEditor: React.FC<CodeEditorProps> = memo(
     fontSize = 20,
     readOnly = false,
   }) => {
+    /** Reference to the editor container div element */
     const editorRef = useRef<HTMLDivElement>(null);
+    /** Reference to the Ace editor instance */
     // @ts-ignore
     const aceEditorRef = useRef<ace.Ace.Editor | null>(null);
+    /** Reference to store the current onChange callback */
     const onChangeRef = useRef(onChange);
+    /** Flag to track initial editor setup */
     const isInitializingRef = useRef(true);
 
-    // Keep onChangeRef updated without causing re-renders of effects using it
+    /**
+     * Updates the onChange callback reference when the prop changes
+     */
     useEffect(() => {
       onChangeRef.current = onChange;
     }, [onChange]);
 
-    // --- Effect for Editor Initialization (Runs only ONCE on mount) ---
+    /**
+     * Initializes the Ace editor instance and sets up custom styling
+     * @returns {Function} Cleanup function to destroy editor instance
+     */
     useEffect(() => {
       if (!editorRef.current) return;
 
@@ -214,14 +238,14 @@ const CodeEditor: React.FC<CodeEditorProps> = memo(
       };
     }, []);
 
-    // Rest of the effects remain the same
+    /**
+     * Updates editor content when initialValue prop changes
+     */
     useEffect(() => {
       if (aceEditorRef.current && !isInitializingRef.current) {
         const currentValue = aceEditorRef.current.getValue();
         if (initialValue !== currentValue) {
-          console.log(
-            'CodeEditor: Received new initialValue prop, updating editor.',
-          );
+          console.log('CodeEditor: Received new initialValue prop, updating editor.');
           isInitializingRef.current = true;
           aceEditorRef.current.setValue(initialValue, -1);
           isInitializingRef.current = false;
@@ -229,6 +253,9 @@ const CodeEditor: React.FC<CodeEditorProps> = memo(
       }
     }, [initialValue]);
 
+    /**
+     * Updates editor language mode when language prop changes
+     */
     useEffect(() => {
       if (aceEditorRef.current) {
         console.log(`CodeEditor: Setting mode to ace/mode/${language}`);
@@ -236,6 +263,9 @@ const CodeEditor: React.FC<CodeEditorProps> = memo(
       }
     }, [language]);
 
+    /**
+     * Updates editor theme when theme prop changes
+     */
     useEffect(() => {
       if (aceEditorRef.current) {
         console.log(`CodeEditor: Setting theme to ${theme}`);
@@ -243,6 +273,9 @@ const CodeEditor: React.FC<CodeEditorProps> = memo(
       }
     }, [theme]);
 
+    /**
+     * Updates editor font size when fontSize prop changes
+     */
     useEffect(() => {
       if (aceEditorRef.current) {
         console.log(`CodeEditor: Setting font size to ${fontSize}`);
@@ -250,6 +283,9 @@ const CodeEditor: React.FC<CodeEditorProps> = memo(
       }
     }, [fontSize]);
 
+    /**
+     * Updates editor read-only state when readOnly prop changes
+     */
     useEffect(() => {
       if (aceEditorRef.current) {
         console.log(`CodeEditor: Setting readOnly to ${readOnly}`);
