@@ -114,13 +114,22 @@ const theme = {
  * Includes a function to determine pixel color based on 3D coordinates.
  * @type {string}
  */
-const DEFAULT_PYTHON_CODE = `def draw(X, Y, Z, GRID_SIZE):
-  # X, Y, Z are coordinates (0-based)
-  # GRID_SIZE is the grid dimension
-  # Return True to color, False for transparent
-  if X + Y + Z <= GRID_SIZE:
-    return True
-  return False
+const DEFAULT_PYTHON_CODE = `
+def draw(X, Y, Z, GRID_SIZE):
+  center = (GRID_SIZE - 1) / 2.0
+  dist_from_center = sqrt(
+      (X - center)**2 + (Y - center)**2 + (Z - center)**2
+  )
+  outer_radius = GRID_SIZE * 0.45
+  inner_radius = GRID_SIZE * 0.30
+  is_in_shell = inner_radius <= dist_from_center <= outer_radius
+  if is_in_shell:
+    if mod(floor(X) + floor(Y) + floor(Z), 2) == 0:
+      return True
+    else:
+      return False
+  else:
+    return False
 `;
 
 /**
