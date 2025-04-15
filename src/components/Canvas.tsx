@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Interpreter } from 'jspython-interpreter';
+import type { Interpreter } from '../../submodules/jspython/src/interpreter';
 import * as THREE from 'three';
 // @ts-ignore
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';

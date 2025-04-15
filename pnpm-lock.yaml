@@ -122,9 +122,6 @@ importers:
       input-otp:
         specifier: ^1.2.4
         version: 1.4.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      jspython-interpreter:
-        specifier: ^2.1.16
-        version: 2.1.16
       lucide-react:
         specifier: ^0.462.0
         version: 0.462.0(react@18.3.1)
@@ -2057,9 +2054,6 @@ packages:
 
   json-stable-stringify-without-jsonify@1.0.1:
     resolution: {integrity: sha512-Bdboy+l7tA3OGW6FjyFHWkP5LuByj1Tk33Ljyq0axyzdk9//JSi2u3fP1QSmd1KNwq6VOKYGlAu87CisVir6Pw==}
-
-  jspython-interpreter@2.1.16:
-    resolution: {integrity: sha512-zISwSzG1GRlRXmaFBFkc7mDK1PXm8ftOR1IeZFbpPXEzbp01t5Rz7DqOVJ4vztzd/adiCDy0BEUn6O/hzGg6tA==}
 
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
@@ -4377,8 +4371,6 @@ snapshots:
   json-schema-traverse@0.4.1: {}
 
   json-stable-stringify-without-jsonify@1.0.1: {}
-
-  jspython-interpreter@2.1.16: {}
 
   keyv@4.5.4:
     dependencies:

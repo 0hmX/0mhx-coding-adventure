@@ -8,7 +8,7 @@ import {
   ResizableHandle,
 } from '@/components/ui/resizable';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { jsPython, Interpreter } from 'jspython-interpreter';
+import { jsPython, type Interpreter } from '../../submodules/jspython/src/interpreter';
 import { Button } from '@/components/ui/button';
 import { Code, Cuboid, Play, AlertTriangle } from 'lucide-react'; // Add AlertTriangle icon
 import { useToast } from '@/hooks/use-toast'; // Import toast hook for error notifications
