@@ -114,7 +114,7 @@ const Canvas: React.FC<CanvasProps> = ({
     
     // Add axes helper
     const axesHelper = new THREE.AxesHelper(effectiveGridSize);
-    axesHelper.position.set(0, 0, 0);
+    axesHelper.position.set(0, 1, 0);
     scene.add(axesHelper);
     
     // Add axis labels
