@@ -8,39 +8,152 @@ import {
   ResizableHandle,
 } from '@/components/ui/resizable';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { cn } from '@/lib/utils';
 import { jsPython, Interpreter } from 'jspython-interpreter';
 import { Button } from '@/components/ui/button';
 import { Code, Cuboid } from 'lucide-react';
 
-// Default Python code with a simple example
-const DEFAULT_PYTHON_CODE = `# Define a function to draw based on coordinates
-# X, Y, and Z are the current coordinates (0-based)
-# GRID_SIZE is the size of the grid
-# Return True to color the pixel, False to leave it transparent
+/**
+ * @typedef {object} ThemeColors
+ * @property {string} primary - Primary interactive color (e.g., buttons).
+ * @property {string} secondary - Secondary background/accent color.
+ * @property {string} background - Main background color/image.
+ * @property {string} panelBg - Background for code editor and canvas panels.
+ * @property {string} textPrimary - Primary text color, often on dark backgrounds.
+ * @property {string} textSecondary - Secondary text color, often for labels.
+ * @property {string} textHeader - Color for the main header text (original).
+ * @property {string} bloodRed - Deep red color for the styled header.
+ * @property {string} border - Border color for panels and elements.
+ * @property {string} inputBg - Background color for input fields.
+ * @property {string} inputBorder - Border color for input fields.
+ * @property {string} checkboxAccent - Accent color for checkboxes.
+ * @property {string} handleBg - Background color for the resizable handle.
+ * @property {string} shadow - Default box shadow color/value.
+ * @property {string} textShadow - Default text shadow color/value.
+ * @property {string} bloodShadowDark - Darker shadow for blood effect.
+ * @property {string} bloodShadowMid - Mid-tone shadow for blood effect.
+ * @property {string} bloodShadowLight - Lighter shadow for blood effect.
+ */
 
-def draw(X, Y, Z, GRID_SIZE):
-  # Create a simple 3D shape
+/**
+ * @typedef {object} ThemeFonts
+ * @property {string} primary - Primary font family for UI text.
+ * @property {string} header - Font family specifically for the main header.
+ */
+
+/**
+ * @typedef {object} ThemeLayout
+ * @property {string} borderRadius - Standard border radius for panels.
+ * @property {string} padding - Standard padding value.
+ * @property {string} controlBarHeight - Minimum height for the control bar.
+ */
+
+/**
+ * @typedef {object} ThemeBackground
+ * @property {string} image - URL for the background image.
+ * @property {string} size - Background size property.
+ * @property {string} position - Background position property.
+ * @property {string} attachment - Background attachment property.
+ */
+
+/**
+ * @typedef {object} Theme
+ * @property {ThemeColors} colors - Color palette.
+ * @property {ThemeFonts} fonts - Font families.
+ * @property {ThemeLayout} layout - Layout properties like padding and border radius.
+ * @property {ThemeBackground} background - Background image properties.
+ */
+
+/**
+ * Theme object defining the visual style of the application.
+ * @type {Theme}
+ */
+const theme = {
+  colors: {
+    primary: 'rgba(139, 69, 19, 0.8)', // SaddleBrown-ish, semi-transparent
+    secondary: 'rgba(210, 180, 140, 0.85)', // Tan-ish, semi-transparent
+    panelBg: 'rgba(57, 52, 43, 0.9)', // Dark Olive/Brown, semi-transparent
+    textPrimary: '#FFF8DC', // Cornsilk
+    textSecondary: '#5D3A1A', // Darker Brown for labels
+    textHeader: '#A0522D', // Sienna (original)
+    bloodRed: '#8b0000', // DarkRed
+    border: 'rgba(139, 69, 19, 0.5)', // SaddleBrown-ish, more transparent
+    inputBg: '#FFF8DC', // Cornsilk (approximates amber-50)
+    inputBorder: '#8B4513', // SaddleBrown (approximates amber-700)
+    checkboxAccent: '#8B4513', // SaddleBrown (approximates amber-700)
+    handleBg: 'rgba(139, 69, 19, 0.3)', // SaddleBrown-ish, very transparent
+    shadow: 'rgba(0,0,0,0.15)',
+    textShadow: 'rgba(0,0,0,0.3)',
+    // Colors for the blood drip text shadow effect
+    bloodShadowDark: 'rgba(50, 0, 0, 0.8)',
+    bloodShadowMid: 'rgba(100, 0, 0, 0.6)',
+    bloodShadowLight: 'rgba(139, 0, 0, 0.4)',
+  },
+  fonts: {
+    primary: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
+    // Consider a more dramatic font if available, otherwise Palatino is fine
+    header: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
+    // Example alternative: header: '"Creepster", cursive', // Needs Google Font import
+  },
+  layout: {
+    borderRadius: '0.75rem', // Corresponds to rounded-xl
+    padding: '1rem', // Corresponds to p-4
+    controlBarHeight: '60px',
+    panelShadow: '0 8px 32px rgba(0,0,0,0.15)',
+    buttonPadding: '0.5rem 1.5rem',
+  },
+  background: {
+    image: 'url("/bg.png")',
+    size: 'cover',
+    position: 'center',
+    attachment: 'fixed',
+  },
+};
+
+/**
+ * Default Python code provided in the editor.
+ * Includes a function to determine pixel color based on 3D coordinates.
+ * @type {string}
+ */
+const DEFAULT_PYTHON_CODE = `def draw(X, Y, Z, GRID_SIZE):
+  # X, Y, Z are coordinates (0-based)
+  # GRID_SIZE is the grid dimension
+  # Return True to color, False for transparent
   if X + Y + Z <= GRID_SIZE:
     return True
   return False
 `;
 
+/**
+ * Main application component integrating the code editor and 3D canvas.
+ * @returns {JSX.Element} The rendered application UI.
+ */
 const Index = () => {
-  // State management
+  /** State for the Python code in the editor */
   const [pythonCode, setPythonCode] = useState(DEFAULT_PYTHON_CODE);
+  /** State for the size of the grid (N x N x N) */
   const [gridSize, setGridSize] = useState(10);
+  /** State to toggle the visibility of the grid lines on the canvas */
   const [showGrid, setShowGrid] = useState(true);
+  /** State for the desired width of the canvas component */
   const [canvasWidth, setCanvasWidth] = useState(500);
+  /** State for the desired height of the canvas component */
   const [canvasHeight, setCanvasHeight] = useState(500);
-  const [pythonInterpreter, setPythonInterpreter] = useState<Interpreter | null>(null);
+  /** State holding the js-python interpreter instance */
+  const [pythonInterpreter, setPythonInterpreter] =
+    useState<Interpreter | null>(null);
+  /** State indicating if the Python code is currently being executed */
   const [isRunning, setIsRunning] = useState(false);
+  /** State acting as a trigger for the Canvas component to run the code */
   const [shouldRun, setShouldRun] = useState(false);
+  /** Hook to detect if the current view is mobile */
   const isMobile = useIsMobile();
-  // Add state for mobile view toggle
+  /** State to toggle between 'editor' and 'canvas' view on mobile */
   const [mobileView, setMobileView] = useState<'editor' | 'canvas'>('editor');
 
-  // Initialize the js-python interpreter on component mount
+  /**
+   * Initializes the js-python interpreter when the component mounts
+   * and cleans it up when the component unmounts.
+   */
   useEffect(() => {
     console.log('Initializing js-python interpreter...');
     const interp = jsPython();
@@ -54,23 +167,34 @@ const Index = () => {
     };
   }, []);
 
+  /**
+   * Updates the pythonCode state when the editor content changes.
+   * @param {string} newCode - The updated Python code.
+   */
   const handleCodeChange = (newCode: string) => {
     setPythonCode(newCode);
   };
 
+  /**
+   * Updates the gridSize state.
+   * @param {number} size - The new grid size.
+   */
   const handleGridSizeChange = (size: number) => {
     setGridSize(size);
   };
 
+  /**
+   * Updates the showGrid state.
+   * @param {boolean} show - Whether to show the grid.
+   */
   const handleShowGridChange = (show: boolean) => {
     setShowGrid(show);
   };
 
-  const handleCanvasSizeChange = (width: number, height: number) => {
-    setCanvasWidth(width);
-    setCanvasHeight(height);
-  };
-
+  /**
+   * Handles the click event of the 'Run' button.
+   * Sets flags to initiate code execution in the Canvas component.
+   */
   const handleRunCode = () => {
     if (!pythonInterpreter) {
       console.error('Python interpreter not initialized yet.');
@@ -80,64 +204,83 @@ const Index = () => {
     setIsRunning(true);
     setShouldRun(true);
 
+    /** Briefly keep the button in running state for visual feedback */
     setTimeout(() => {
       setIsRunning(false);
     }, 500);
   };
 
+  /**
+   * Callback function passed to the Canvas component.
+   * Called when the canvas finishes executing the Python code.
+   * Resets the execution flags.
+   */
   const handleRunComplete = () => {
     console.log('Canvas reported run complete, setting shouldRun=false');
     setShouldRun(false);
-    setIsRunning(false);
+    setIsRunning(false); /** Ensure isRunning is reset here too */
   };
 
-  // Toggle between editor and canvas views on mobile
+  /**
+   * Toggles the view between the code editor and the canvas on mobile devices.
+   */
   const toggleMobileView = () => {
-    setMobileView(prev => prev === 'editor' ? 'canvas' : 'editor');
+    setMobileView(prev => (prev === 'editor' ? 'canvas' : 'editor'));
   };
+
+  // Define the complex text shadow for the blood drip effect
+  const bloodDripShadow = `
+    1px 1px 1px ${theme.colors.bloodShadowDark},
+    0px 2px 1px ${theme.colors.bloodShadowDark},
+    0px 4px 3px ${theme.colors.bloodShadowMid},
+    0px 6px 5px ${theme.colors.bloodShadowLight},
+    0px 8px 8px ${theme.colors.bloodShadowLight}
+  `;
+  // Optional: Add slight variations for specific letters if desired,
+  // but that would require spans or more complex CSS selectors.
 
   return (
-    <div 
+    <div
       className="min-h-screen w-screen overflow-hidden p-4"
       style={{
-        backgroundImage: 'url("/bg.png")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed'
+        backgroundImage: theme.background.image,
+        backgroundSize: theme.background.size,
+        backgroundPosition: theme.background.position,
+        backgroundAttachment: theme.background.attachment,
       }}
     >
-      {/* Ghibli-style header */}
       <div className="mb-4 text-center">
-        <h1 className="text-4xl font-bold text-amber-800" style={{ 
-          fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
-          textShadow: '1px 1px 2px rgba(0,0,0,0.3)'
-        }}>
+        <h1
+          className="text-4xl font-bold" // Keep font-bold for weight
+          style={{
+            color: theme.colors.bloodRed, // Use the deep red color
+            fontFamily: theme.fonts.header,
+            textShadow: bloodDripShadow, // Apply the dripping shadow effect
+            // Optional: Add a very slight rotation for unease
+            // transform: 'rotate(-1deg)',
+          }}
+        >
           Created By 0hmX
         </h1>
       </div>
 
-      {/* Navbar with Ghibli styling */}
       <div className="mb-4">
-        <Navbar 
-          onRunCode={handleRunCode} 
-          isRunning={isRunning} 
-        />
+        <Navbar onRunCode={handleRunCode} isRunning={isRunning} />
       </div>
 
-      {/* Mobile view toggle button */}
       {isMobile && (
         <div className="mb-4 flex justify-center">
           <Button
             onClick={toggleMobileView}
             className="rounded-full relative overflow-hidden"
             style={{
-              backgroundColor: 'rgba(139, 69, 19, 0.8)',
-              color: '#FFF8DC',
-              border: '2px solid rgba(210, 180, 140, 0.8)',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-              padding: '0.5rem 1.5rem',
-              fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
-              transition: 'all 0.2s ease'
+              backgroundColor: theme.colors.primary,
+              color: theme.colors.textPrimary,
+              border: `2px solid ${theme.colors.border}`,
+              boxShadow: `0 2px 4px ${theme.colors.shadow}`,
+              padding: theme.layout.buttonPadding,
+              fontFamily: theme.fonts.primary,
+              transition: 'all 0.2s ease',
             }}
           >
             <span className="flex items-center">
@@ -158,15 +301,16 @@ const Index = () => {
       )}
 
       {isMobile ? (
-        // Mobile layout with toggle between views
-        <div className="h-[calc(100vh-220px)] w-full rounded-xl overflow-hidden" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+        <div
+          className="h-[calc(100vh-220px)] w-full overflow-hidden rounded-xl"
+          style={{ boxShadow: theme.layout.panelShadow }}
+        >
           {mobileView === 'editor' ? (
             <div
               className="flex h-full flex-col overflow-hidden rounded-xl border"
-              style={{ 
-                backgroundColor: '#484118',
-                opacity: 0.9,
-                borderColor: 'rgba(139, 69, 19, 0.5)'
+              style={{
+                backgroundColor: theme.colors.panelBg,
+                borderColor: theme.colors.border,
               }}
             >
               <div className="relative flex-grow">
@@ -180,10 +324,9 @@ const Index = () => {
           ) : (
             <div
               className="relative h-full overflow-hidden rounded-xl border"
-              style={{ 
-                backgroundColor: '#484118',
-                opacity: 0.9,
-                borderColor: 'rgba(139, 69, 19, 0.5)'
+              style={{
+                backgroundColor: theme.colors.panelBg,
+                borderColor: theme.colors.border,
               }}
             >
               <div className="flex h-full flex-col">
@@ -199,42 +342,57 @@ const Index = () => {
                     onRunComplete={handleRunComplete}
                   />
                 </div>
-                <div 
+                <div
                   className="w-full flex-shrink-0 mt-auto"
-                  style={{ 
-                    backgroundColor: 'rgba(210, 180, 140, 0.85)',
-                    borderTop: '1px solid rgba(139, 69, 19, 0.5)',
+                  style={{
+                    backgroundColor: theme.colors.secondary,
+                    borderTop: `1px solid ${theme.colors.border}`,
                     padding: '12px',
-                    minHeight: '60px'
+                    minHeight: theme.layout.controlBarHeight,
                   }}
                 >
-                  <div className="flex justify-center items-center gap-8 text-black">
+                  <div className="flex justify-center items-center gap-8">
                     <div className="flex items-center">
-                      <label className="text-amber-900 font-semibold mr-2" style={{ 
-                        fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
-                        color: '#5D3A1A'
-                      }}>
+                      <label
+                        className="font-semibold mr-2"
+                        style={{
+                          fontFamily: theme.fonts.primary,
+                          color: theme.colors.textSecondary,
+                        }}
+                      >
                         Grid Size
                       </label>
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         value={gridSize}
-                        onChange={(e) => handleGridSizeChange(parseInt(e.target.value) || 10)}
-                        className="w-16 px-2 py-1 rounded border border-amber-700 bg-amber-50"
+                        onChange={e =>
+                          handleGridSizeChange(parseInt(e.target.value) || 10)
+                        }
+                        className="w-16 px-2 py-1 rounded"
+                        style={{
+                          border: `1px solid ${theme.colors.inputBorder}`,
+                          backgroundColor: theme.colors.inputBg,
+                          color: theme.colors.textSecondary, // Ensure text is visible
+                        }}
                       />
                     </div>
                     <div className="flex items-center">
-                      <input 
-                        type="checkbox" 
-                        id="showGrid"
+                      <input
+                        type="checkbox"
+                        id="showGridMobile" /** Unique ID for mobile */
                         checked={showGrid}
-                        onChange={(e) => handleShowGridChange(e.target.checked)}
-                        className="mr-2 h-4 w-4 accent-amber-700"
+                        onChange={e => handleShowGridChange(e.target.checked)}
+                        className="mr-2 h-4 w-4"
+                        style={{ accentColor: theme.colors.checkboxAccent }}
                       />
-                      <label htmlFor="showGrid" className="text-amber-900 font-semibold" style={{ 
-                        fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
-                        color: '#5D3A1A'
-                      }}>
+                      <label
+                        htmlFor="showGridMobile"
+                        className="font-semibold"
+                        style={{
+                          fontFamily: theme.fonts.primary,
+                          color: theme.colors.textSecondary,
+                        }}
+                      >
                         Show Grid
                       </label>
                     </div>
@@ -246,18 +404,20 @@ const Index = () => {
         </div>
       ) : (
         // Desktop layout with resizable panels
+        <div className='h-[calc(100vh-180px)]'>
         <ResizablePanelGroup
           direction="horizontal"
-          className="h-[calc(100vh-180px)] w-full rounded-xl overflow-hidden"
-          style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}
+          // Added mb-4 here for the bottom gap
+          className="w-full rounded-xl overflow-hidden mb-10"
+          style={{ boxShadow: theme.layout.panelShadow }}
         >
           <ResizablePanel defaultSize={50} minSize={30}>
             <div
-              className="flex h-full flex-col overflow-hidden rounded-xl border rounded-tr-none"
-              style={{ 
-                backgroundColor: '#484118',
-                opacity: 0.9,
-                borderColor: 'rgba(139, 69, 19, 0.5)'
+              className="flex h-full flex-col overflow-hidden rounded-l-xl border"
+              style={{
+                backgroundColor: theme.colors.panelBg,
+                borderColor: theme.colors.border,
+                borderRightWidth: 0,
               }}
             >
               <div className="relative flex-grow">
@@ -273,22 +433,22 @@ const Index = () => {
           <ResizableHandle
             withHandle
             className="transition-colors duration-200"
-            style={{ 
-              backgroundColor: 'rgba(139, 69, 19, 0.3)',
+            style={{
+              backgroundColor: theme.colors.handleBg,
             }}
           />
 
           <ResizablePanel defaultSize={50} minSize={30}>
             <div
-              className="relative h-full overflow-hidden rounded-xl border rounded-tl-none"
-              style={{ 
-                backgroundColor: '#484118',
-                opacity: 0.9,
-                borderColor: 'rgba(139, 69, 19, 0.5)'
+              className="relative h-full overflow-hidden rounded-r-xl border"
+              style={{
+                backgroundColor: theme.colors.panelBg,
+                borderColor: theme.colors.border,
+                borderLeftWidth: 0,
               }}
             >
               <div className="flex h-full flex-col">
-                <div className="flex-grow flex items-center justify-center overflow-hidden">
+                <div className="flex-grow flex items-center justify-center overflow-hidden p-2">
                   <Canvas
                     width={canvasWidth}
                     height={canvasHeight}
@@ -300,42 +460,59 @@ const Index = () => {
                     onRunComplete={handleRunComplete}
                   />
                 </div>
-                <div 
+                <div
                   className="w-full flex-shrink-0 mt-auto"
-                  style={{ 
-                    backgroundColor: 'rgba(210, 180, 140, 0.85)',
-                    borderTop: '1px solid rgba(139, 69, 19, 0.5)',
+                  style={{
+                    backgroundColor: theme.colors.secondary,
+                    borderTop: `1px solid ${theme.colors.border}`,
                     padding: '12px',
-                    minHeight: '60px'
+                    minHeight: theme.layout.controlBarHeight,
+                    borderBottomLeftRadius: theme.layout.borderRadius,
+                    borderBottomRightRadius: theme.layout.borderRadius,
                   }}
                 >
-                  <div className="flex justify-center items-center gap-8 text-black">
+                  <div className="flex justify-center items-center gap-8">
                     <div className="flex items-center">
-                      <label className="text-amber-900 font-semibold mr-2" style={{ 
-                        fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
-                        color: '#5D3A1A'
-                      }}>
+                      <label
+                        className="font-semibold mr-2"
+                        style={{
+                          fontFamily: theme.fonts.primary,
+                          color: theme.colors.textSecondary,
+                        }}
+                      >
                         Grid Size
                       </label>
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         value={gridSize}
-                        onChange={(e) => handleGridSizeChange(parseInt(e.target.value) || 10)}
-                        className="w-16 px-2 py-1 rounded border border-amber-700 bg-amber-50"
+                        onChange={e =>
+                          handleGridSizeChange(parseInt(e.target.value) || 10)
+                        }
+                        className="w-16 px-2 py-1 rounded"
+                        style={{
+                          border: `1px solid ${theme.colors.inputBorder}`,
+                          backgroundColor: theme.colors.inputBg,
+                          color: theme.colors.textSecondary,
+                        }}
                       />
                     </div>
                     <div className="flex items-center">
-                      <input 
-                        type="checkbox" 
-                        id="showGrid"
+                      <input
+                        type="checkbox"
+                        id="showGridDesktop" /** Unique ID for desktop */
                         checked={showGrid}
-                        onChange={(e) => handleShowGridChange(e.target.checked)}
-                        className="mr-2 h-4 w-4 accent-amber-700"
+                        onChange={e => handleShowGridChange(e.target.checked)}
+                        className="mr-2 h-4 w-4"
+                        style={{ accentColor: theme.colors.checkboxAccent }}
                       />
-                      <label htmlFor="showGrid" className="text-amber-900 font-semibold" style={{ 
-                        fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
-                        color: '#5D3A1A'
-                      }}>
+                      <label
+                        htmlFor="showGridDesktop"
+                        className="font-semibold"
+                        style={{
+                          fontFamily: theme.fonts.primary,
+                          color: theme.colors.textSecondary,
+                        }}
+                      >
                         Show Grid
                       </label>
                     </div>
@@ -345,6 +522,7 @@ const Index = () => {
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
+      </div>
       )}
     </div>
   );
