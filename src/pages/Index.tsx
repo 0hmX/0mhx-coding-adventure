@@ -10,7 +10,8 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile';
 import { jsPython, Interpreter } from 'jspython-interpreter';
 import { Button } from '@/components/ui/button';
-import { Code, Cuboid, Play } from 'lucide-react'; // Add Play icon
+import { Code, Cuboid, Play, AlertTriangle } from 'lucide-react'; // Add AlertTriangle icon
+import { useToast } from '@/hooks/use-toast'; // Import toast hook for error notifications
 
 /**
  * @typedef {object} ThemeColors
@@ -157,10 +158,14 @@ const Index = () => {
   const [isRunning, setIsRunning] = useState(false);
   /** State acting as a trigger for the Canvas component to run the code */
   const [shouldRun, setShouldRun] = useState(false);
+  /** State to track if there's an error in the Python code */
+  const [hasError, setHasError] = useState(false);
   /** Hook to detect if the current view is mobile */
   const isMobile = useIsMobile();
   /** State to toggle between 'editor' and 'canvas' view on mobile */
   const [mobileView, setMobileView] = useState<'editor' | 'canvas'>('editor');
+  /** Toast hook for showing error notifications */
+  const { toast } = useToast();
 
   /**
    * Initializes the js-python interpreter when the component mounts
@@ -185,6 +190,10 @@ const Index = () => {
    */
   const handleCodeChange = (newCode: string) => {
     setPythonCode(newCode);
+    // Reset error state when code changes
+    if (hasError) {
+      setHasError(false);
+    }
   };
 
   /**
@@ -212,14 +221,27 @@ const Index = () => {
       console.error('Python interpreter not initialized yet.');
       return;
     }
+    
+    // Reset error state before running
+    setHasError(false);
+    
+    // Try to parse the code first to catch syntax errors
+    try {
+      pythonInterpreter.parse(pythonCode);
+    } catch (error) {
+      console.error('Python syntax error:', error);
+      setHasError(true);
+      toast({
+        title: "Syntax Error",
+        description: `${error}`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     console.log('Run button clicked, setting shouldRun=true');
     setIsRunning(true);
     setShouldRun(true);
-
-    /** Briefly keep the button in running state for visual feedback */
-    setTimeout(() => {
-      setIsRunning(false);
-    }, 500);
   };
 
   /**
@@ -227,10 +249,20 @@ const Index = () => {
    * Called when the canvas finishes executing the Python code.
    * Resets the execution flags.
    */
-  const handleRunComplete = () => {
+  const handleRunComplete = (error?: Error) => {
     console.log('Canvas reported run complete, setting shouldRun=false');
     setShouldRun(false);
-    setIsRunning(false); /** Ensure isRunning is reset here too */
+    setIsRunning(false);
+    
+    if (error) {
+      console.error('Error during Python execution:', error);
+      setHasError(true);
+      toast({
+        title: "Execution Error",
+        description: `${error.message || 'An error occurred while running your code'}`,
+        variant: "destructive",
+      });
+    }
   };
 
   /**
@@ -327,13 +359,21 @@ const Index = () => {
               disabled={isRunning}
               className="h-16 w-16 rounded-full hover:scale-110 transition-transform"
               style={{
-                backgroundColor: isRunning ? theme.colors.secondary : theme.colors.primary,
+                backgroundColor: hasError 
+                  ? '#8b0000' // Use bloodRed for error state
+                  : isRunning 
+                    ? theme.colors.secondary 
+                    : theme.colors.primary,
                 color: theme.colors.textPrimary,
-                border: `2px solid ${theme.colors.border}`,
+                border: `2px solid ${hasError ? '#ff6b6b' : theme.colors.border}`,
                 boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
               }}
             >
-              <Play className={`h-8 w-8 ${isRunning ? 'animate-pulse' : ''}`} />
+              {hasError ? (
+                <AlertTriangle className="h-8 w-8" />
+              ) : (
+                <Play className={`h-8 w-8 ${isRunning ? 'animate-pulse' : ''}`} />
+              )}
             </Button>
           </div>
         </>

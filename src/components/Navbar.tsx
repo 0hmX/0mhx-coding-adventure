@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Info, Play, LoaderCircle, Sword, Newspaper, HelpCircle } from 'lucide-react';
+import { Info, Play, LoaderCircle, Sword, Newspaper, HelpCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -12,9 +12,10 @@ import { Card } from '@/components/ui/card';
 interface NavbarProps {
   onRunCode: () => void;
   isRunning: boolean;
+  hasError?: boolean; // Add hasError prop
 }
 
-const Navbar = ({ onRunCode, isRunning }: NavbarProps) => {
+const Navbar = ({ onRunCode, isRunning, hasError = false }: NavbarProps) => {
   return (
     <Card className="w-full px-4 py-2 mb-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 shadow-md">
       <div className="flex justify-between items-center">
@@ -132,7 +133,11 @@ const Navbar = ({ onRunCode, isRunning }: NavbarProps) => {
             disabled={isRunning}
             className="relative overflow-hidden rounded-full group"
             style={{
-              backgroundColor: isRunning ? 'rgba(139, 69, 19, 0.6)' : 'rgba(139, 69, 19, 0.8)',
+              backgroundColor: hasError 
+                ? '#8b0000' // Use bloodRed for error state
+                : isRunning 
+                  ? 'rgba(139, 69, 19, 0.6)' 
+                  : 'rgba(139, 69, 19, 0.8)',
               color: '#FFF8DC',
               border: '2px solid rgba(210, 180, 140, 0.8)',
               boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
@@ -142,7 +147,12 @@ const Navbar = ({ onRunCode, isRunning }: NavbarProps) => {
             }}
           >
             <span className="flex items-center">
-              {isRunning ? (
+              {hasError ? (
+                <>
+                  <AlertTriangle className="mr-2 h-4 w-4" />
+                  Error
+                </>
+              ) : isRunning ? (
                 <>
                   <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
                   Running
