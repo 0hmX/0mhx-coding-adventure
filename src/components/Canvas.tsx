@@ -84,18 +84,20 @@ const Canvas: React.FC<CanvasProps> = ({
     
     // Create scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000); // Changed to black color
+    // Change background to a softer Ghibli-inspired color
+    scene.background = new THREE.Color(0xE6DDC6); // Warm parchment color for Ghibli style
     sceneRef.current = scene;
     
     // Create camera
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    // Adjusted camera position for better centering
+    // Position camera to center on the grid
+    const gridCenter = effectiveGridSize / 2;
     camera.position.set(
-      effectiveGridSize / 2, 
-      effectiveGridSize / 2, 
+      gridCenter, 
+      gridCenter, 
       effectiveGridSize * 1.8
     );
-    camera.lookAt(effectiveGridSize / 2, effectiveGridSize / 2, effectiveGridSize / 2);
+    camera.lookAt(gridCenter, gridCenter, gridCenter);
     cameraRef.current = camera;
     
     // Create renderer
@@ -110,6 +112,96 @@ const Canvas: React.FC<CanvasProps> = ({
     controls.dampingFactor = 0.25;
     controlsRef.current = controls;
     
+    // Add axes helper
+    const axesHelper = new THREE.AxesHelper(effectiveGridSize);
+    axesHelper.position.set(0, 0, 0);
+    scene.add(axesHelper);
+    
+    // Add axis labels
+    const createAxisLabel = (text: string, position: THREE.Vector3, color: string) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 128;
+      canvas.height = 64;
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.fillStyle = 'rgba(255, 248, 220, 0)';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.font = 'bold 40px Arial';
+        context.fillStyle = color;
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(text, canvas.width / 2, canvas.height / 2);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+        const sprite = new THREE.Sprite(material);
+        sprite.position.copy(position);
+        sprite.scale.set(1, 0.5, 1);
+        scene.add(sprite);
+        return sprite;
+      }
+      return null;
+    };
+    
+    // Create axis labels
+    const xLabel = createAxisLabel('X', new THREE.Vector3(effectiveGridSize + 0.5, 0, 0), '#ff0000');
+    const yLabel = createAxisLabel('Y', new THREE.Vector3(0, effectiveGridSize + 0.5, 0), '#00ff00');
+    const zLabel = createAxisLabel('Z', new THREE.Vector3(0, 0, effectiveGridSize + 0.5), '#0000ff');
+    
+    // Setup raycaster for hover effects
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const tooltipDiv = document.createElement('div');
+    tooltipDiv.style.position = 'absolute';
+    tooltipDiv.style.padding = '8px';
+    tooltipDiv.style.backgroundColor = 'rgba(255, 248, 220, 0.8)';
+    tooltipDiv.style.border = '1px solid #8B4513';
+    tooltipDiv.style.borderRadius = '4px';
+    tooltipDiv.style.color = '#5D3A1A';
+    tooltipDiv.style.fontFamily = '"Palatino Linotype", "Book Antiqua", Palatino, serif';
+    tooltipDiv.style.fontSize = '14px';
+    tooltipDiv.style.pointerEvents = 'none';
+    tooltipDiv.style.display = 'none';
+    tooltipDiv.style.zIndex = '1000';
+    if (containerRef.current) {
+      containerRef.current.appendChild(tooltipDiv);
+    }
+    
+    // Add mouse move event listener
+    const onMouseMove = (event: MouseEvent) => {
+      if (!containerRef.current || !rendererRef.current || !cameraRef.current || !sceneRef.current) return;
+      
+      const rect = containerRef.current.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / height) * 2 + 1;
+      
+      raycaster.setFromCamera(mouse, cameraRef.current);
+      const intersects = raycaster.intersectObjects(sceneRef.current.children, true);
+      
+      if (intersects.length > 0) {
+        const intersect = intersects[0];
+        if (intersect.object instanceof THREE.Mesh) {
+          const position = intersect.object.position;
+          tooltipDiv.textContent = `Position: (${Math.floor(position.x)}, ${Math.floor(position.y)}, ${Math.floor(position.z)})`;
+          
+          // Fix tooltip positioning to follow mouse cursor
+          const canvasRect = containerRef.current.getBoundingClientRect();
+          const mouseX = event.clientX - canvasRect.left;
+          const mouseY = event.clientY - canvasRect.top;
+          
+          tooltipDiv.style.left = `${mouseX + 10}px`;
+          tooltipDiv.style.top = `${mouseY + 10}px`;
+          tooltipDiv.style.display = 'block';
+        } else {
+          tooltipDiv.style.display = 'none';
+        }
+      } else {
+        tooltipDiv.style.display = 'none';
+      }
+    };
+    
+    containerRef.current.addEventListener('mousemove', onMouseMove);
+    
     // Add ambient light
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
@@ -121,9 +213,9 @@ const Canvas: React.FC<CanvasProps> = ({
     
     // Create grid helper if needed
     if (showGrid) {
-      const gridHelper = new THREE.GridHelper(effectiveGridSize, effectiveGridSize);
-      // Adjust grid position to fix the 0.5 unit offset
-      gridHelper.position.set(effectiveGridSize / 2 , 0, effectiveGridSize / 2 );
+      const gridHelper = new THREE.GridHelper(effectiveGridSize, effectiveGridSize, 0x8B4513, 0xD2B48C); // Brown and tan colors for grid
+      // Center the grid helper
+      gridHelper.position.set(effectiveGridSize / 2, 0, effectiveGridSize / 2);
       sceneRef.current.add(gridHelper);
       gridHelperRef.current = gridHelper;
     }
@@ -140,8 +232,23 @@ const Canvas: React.FC<CanvasProps> = ({
     return () => {
       if (containerRef.current && renderer.domElement) {
         containerRef.current.removeChild(renderer.domElement);
+        
+        // Remove tooltip
+        if (tooltipDiv && tooltipDiv.parentNode) {
+          tooltipDiv.parentNode.removeChild(tooltipDiv);
+        }
+        
+        // Remove event listener
+        containerRef.current.removeEventListener('mousemove', onMouseMove);
       }
+      
       renderer.dispose();
+      
+      // Remove axis labels
+      if (xLabel) scene.remove(xLabel);
+      if (yLabel) scene.remove(yLabel);
+      if (zLabel) scene.remove(zLabel);
+      
       if (gridHelperRef.current) {
         scene.remove(gridHelperRef.current);
       }
@@ -293,9 +400,17 @@ const Canvas: React.FC<CanvasProps> = ({
                   const cube = cubesRef.current[z][y][x];
                   
                   if (result) {
-                    // Update cube color and make visible
-                    const hue = (x + y + z) / (3 * effectiveGridSize);
-                    (cube.material as THREE.MeshLambertMaterial).color.setHSL(hue, 0.7, 0.5);
+                    // Update cube color and make visible using Ghibli-inspired palette
+                    const ghibliColors = [
+                      0x7BB661, // Soft green
+                      0x4D85BD, // Sky blue
+                      0xE15554, // Coral red
+                      0xF9C74F, // Warm yellow
+                      0x9C89B8, // Lavender
+                      0xF8961E  // Orange
+                    ];
+                    const colorIndex = Math.floor((x + y + z) % ghibliColors.length);
+                    (cube.material as THREE.MeshLambertMaterial).color.setHex(ghibliColors[colorIndex]);
                     (cube.material as THREE.MeshLambertMaterial).opacity = 1;
                   }
                 }
