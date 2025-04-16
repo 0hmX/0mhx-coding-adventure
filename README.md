@@ -1,4 +1,4 @@
-# Canvas Code Crafter
+# 0mhx-coding-adventure
 
 A creative coding environment that allows you to write Python code and visualize 3D shapes in real-time using Three.js.
 
@@ -6,7 +6,7 @@ A creative coding environment that allows you to write Python code and visualize
 
 ## Overview
 
-Canvas Code Crafter is an educational tool that combines Python programming with 3D visualization. It's designed to help learners explore programming concepts through interactive visual feedback.
+0mhx-coding-adventure is an educational tool that combines Python programming with 3D visualization. It's designed to help learners explore programming concepts through interactive visual feedback.
 
 ## Features
 
