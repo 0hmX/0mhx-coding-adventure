@@ -40,6 +40,10 @@ interface CanvasProps {
   onRunComplete: (error?: Error) => void;
 }
 
+/**
+ * Result type for operations that may fail
+ */
+type Result<T> = { success: true; value: T } | { success: false; error: Error };
 
 /**
  * A 3D canvas component that renders a grid of cubes controlled by Python code
@@ -158,60 +162,85 @@ const Canvas: React.FC<CanvasProps> = ({
     });
   }, [width, height]);
 
+  // Check if Python execution prerequisites are met
+  const checkPrerequisites = (): Result<void> => {
+    const globalContext = window.canvasGlobalContext;
+    
+    if (!pythonInterpreter) {
+      return { 
+        success: false, 
+        error: new Error('Python interpreter not available') 
+      };
+    }
+    
+    if (!pythonCode.trim()) {
+      return { 
+        success: false, 
+        error: new Error('No Python code provided') 
+      };
+    }
+    
+    if (!globalContext.worker) {
+      return { 
+        success: false, 
+        error: new Error('Worker not initialized') 
+      };
+    }
+    
+    if (isExecutingRef.current) {
+      return { 
+        success: false, 
+        error: new Error('Code is already executing') 
+      };
+    }
+    
+    return { success: true, value: undefined };
+  };
+
   // Effect for executing Python code
   useEffect(() => {
     const globalContext = window.canvasGlobalContext;
 
-    // Guard clauses
-    if (
-      !shouldRun ||
-      !pythonInterpreter ||
-      !pythonCode.trim() ||
-      !globalContext.worker ||
-      isExecutingRef.current
-    ) {
-      if (shouldRun && !isExecutingRef.current) {
-        console.log('Canvas: shouldRun is true, but prerequisites not met. Calling onRunComplete.');
-        onRunComplete?.();
-      }
+    // Skip if not supposed to run
+    if (!shouldRun) return;
+
+    // Check prerequisites
+    const prerequisitesResult = checkPrerequisites();
+    if (!prerequisitesResult.success) {
+      const errorResult = prerequisitesResult as { success: false; error: Error };
+      console.log('Canvas: Prerequisites not met:', errorResult.error.message);
+      onRunComplete?.(errorResult.error);
       return;
     }
 
     // Execution logic
-    const executePythonDrawing = async () => {
-      if (isExecutingRef.current) return;
+    const executePythonDrawing = () => {
       isExecutingRef.current = true;
       console.log('Canvas: Starting Python execution.');
 
-      try {
-        // Send code to worker
-        globalContext.worker.postMessage({
-          type: 'runPythonCode',
-          code: pythonCode,
-          gridSize: effectiveGridSize
-        });
+      // Send code to worker
+      globalContext.worker!.postMessage({
+        type: 'runPythonCode',
+        code: pythonCode,
+        gridSize: effectiveGridSize
+      });
+      
+      // Set up message handler for completion
+      const messageHandler = (e: MessageEvent) => {
+        const { type, status, message } = e.data;
         
-        // Set up message handler for completion
-        const messageHandler = (e: MessageEvent) => {
-          const { type, status, message } = e.data;
-          
-          if (type === 'runPythonCode' && status === 'success') {
-            globalContext.worker?.removeEventListener('message', messageHandler);
-            isExecutingRef.current = false;
-            onRunComplete();
-          } else if (type === 'error') {
-            globalContext.worker?.removeEventListener('message', messageHandler);
-            isExecutingRef.current = false;
-            onRunComplete(new Error(message));
-          }
-        };
-        
-        globalContext.worker.addEventListener('message', messageHandler);
-      } catch (error) {
-        console.error('Canvas: Error during Python execution:', error);
-        isExecutingRef.current = false;
-        onRunComplete(error instanceof Error ? error : new Error(String(error)));
-      }
+        if (type === 'runPythonCode' && status === 'success') {
+          globalContext.worker?.removeEventListener('message', messageHandler);
+          isExecutingRef.current = false;
+          onRunComplete();
+        } else if (type === 'error') {
+          globalContext.worker?.removeEventListener('message', messageHandler);
+          isExecutingRef.current = false;
+          onRunComplete(new Error(message));
+        }
+      };
+      
+      globalContext.worker!.addEventListener('message', messageHandler);
     };
 
     executePythonDrawing();

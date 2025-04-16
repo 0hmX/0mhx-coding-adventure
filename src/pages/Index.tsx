@@ -10,8 +10,8 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile';
 import { jsPython, type Interpreter } from '../../submodules/jspython/src/interpreter';
 import { Button } from '@/components/ui/button';
-import { Code, Cuboid, Play, AlertTriangle } from 'lucide-react'; // Add AlertTriangle icon
-import { useToast } from '@/hooks/use-toast'; // Import toast hook for error notifications
+import { Code, Cuboid, Play, AlertTriangle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 /**
  * @typedef {object} ThemeColors
@@ -158,8 +158,8 @@ const Index = () => {
   const [isRunning, setIsRunning] = useState(false);
   /** State acting as a trigger for the Canvas component to run the code */
   const [shouldRun, setShouldRun] = useState(false);
-  /** State to track if there's an error in the Python code */
-  const [hasError, setHasError] = useState(false);
+  /** State to track errors in the Python code execution */
+  const [error, setError] = useState<Error | null>(null);
   /** Hook to detect if the current view is mobile */
   const isMobile = useIsMobile();
   /** State to toggle between 'editor' and 'canvas' view on mobile */
@@ -191,8 +191,8 @@ const Index = () => {
   const handleCodeChange = (newCode: string) => {
     setPythonCode(newCode);
     // Reset error state when code changes
-    if (hasError) {
-      setHasError(false);
+    if (error) {
+      setError(null);
     }
   };
 
@@ -223,17 +223,18 @@ const Index = () => {
     }
     
     // Reset error state before running
-    setHasError(false);
+    setError(null);
     
     // Try to parse the code first to catch syntax errors
     try {
       pythonInterpreter.parse(pythonCode);
-    } catch (error) {
-      console.error('Python syntax error:', error);
-      setHasError(true);
+    } catch (err) {
+      console.error('Python syntax error:', err);
+      const syntaxError = err instanceof Error ? err : new Error(String(err));
+      setError(syntaxError);
       toast({
         title: "Syntax Error",
-        description: `${error}`,
+        description: syntaxError.message,
         variant: "destructive",
       });
       return;
@@ -249,17 +250,17 @@ const Index = () => {
    * Called when the canvas finishes executing the Python code.
    * Resets the execution flags.
    */
-  const handleRunComplete = (error?: Error) => {
+  const handleRunComplete = (err?: Error) => {
     console.log('Canvas reported run complete, setting shouldRun=false');
     setShouldRun(false);
     setIsRunning(false);
     
-    if (error) {
-      console.error('Error during Python execution:', error);
-      setHasError(true);
+    if (err) {
+      console.error('Error during Python execution:', err);
+      setError(err);
       toast({
         title: "Execution Error",
-        description: `${error.message || 'An error occurred while running your code'}`,
+        description: err.message || 'An error occurred while running your code',
         variant: "destructive",
       });
     }
@@ -282,6 +283,9 @@ const Index = () => {
   `;
   // Optional: Add slight variations for specific letters if desired,
   // but that would require spans or more complex CSS selectors.
+
+  // Check if there's an error
+  const hasError = error !== null;
 
   return (
     <div
@@ -311,7 +315,7 @@ const Index = () => {
       {/* Show Navbar only on desktop */}
       {!isMobile && (
         <div className="mb-4">
-          <Navbar onRunCode={handleRunCode} isRunning={isRunning} />
+          <Navbar onRunCode={handleRunCode} isRunning={isRunning} error={error} />
         </div>
       )}
 

@@ -1,5 +1,3 @@
-
-import React from 'react';
 import { Info, Play, LoaderCircle, Sword, Newspaper, HelpCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,10 +10,16 @@ import { Card } from '@/components/ui/card';
 interface NavbarProps {
   onRunCode: () => void;
   isRunning: boolean;
-  hasError?: boolean; // Add hasError prop
+  error?: Error | null; // Changed from hasError boolean to error object
 }
 
-const Navbar = ({ onRunCode, isRunning, hasError = false }: NavbarProps) => {
+const Navbar = ({ onRunCode, isRunning, error = null }: NavbarProps) => {
+  // Determine if there's an error
+  const hasError = error !== null;
+  
+  // Get error message if available
+  const errorMessage = error?.message || 'Error';
+
   return (
     <Card className="w-full px-4 py-2 mb-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 shadow-md">
       <div className="flex justify-between items-center">
@@ -150,7 +154,7 @@ const Navbar = ({ onRunCode, isRunning, hasError = false }: NavbarProps) => {
               {hasError ? (
                 <>
                   <AlertTriangle className="mr-2 h-4 w-4" />
-                  Error
+                  {errorMessage}
                 </>
               ) : isRunning ? (
                 <>
@@ -168,6 +172,32 @@ const Navbar = ({ onRunCode, isRunning, hasError = false }: NavbarProps) => {
               <span className="absolute inset-0 border-2 border-amber-200/40 rounded-full animate-ping"></span>
             )}
           </Button>
+          
+          {/* Error tooltip for more detailed error information */}
+          {hasError && error?.stack && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/10">
+                  <AlertTriangle className="h-5 w-5" style={{ color: '#8b0000' }} />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-96" style={{ 
+                backgroundColor: 'rgba(255, 248, 220, 0.95)',
+                borderColor: 'rgba(139, 0, 0, 0.5)',
+                borderWidth: '2px'
+              }}>
+                <div className="space-y-2">
+                  <h3 className="font-medium text-lg" style={{ color: '#8b0000' }}>Error Details</h3>
+                  <p className="text-sm" style={{ color: '#5D4037' }}>
+                    {error.message}
+                  </p>
+                  <pre className="text-xs bg-black/10 p-2 rounded overflow-auto max-h-40" style={{ color: '#8b0000' }}>
+                    {error.stack}
+                  </pre>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </div>
     </Card>
