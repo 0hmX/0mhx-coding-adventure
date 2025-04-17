@@ -53,7 +53,10 @@ type State = {
     camera: THREE.PerspectiveCamera | null,
     animationFrameId: number | null,
     cubes: THREE.Mesh[][][] | null,  // Array to store cube references
-    animatingCubes: {mesh: THREE.Mesh, targetScale: THREE.Vector3, startTime: number}[] // Track currently animating cubes
+    animatingCubes: {mesh: THREE.Mesh, targetScale: THREE.Vector3, startTime: number, progress: number}[], // Track currently animating cubes
+    isAnimating: boolean, // Flag to track if animations are in progress
+    animationResolve: (() => void) | null, // Resolver function for animation completion
+    lastTimestamp: number // Last animation timestamp
 }
 
 const state: State = {
@@ -63,7 +66,10 @@ const state: State = {
     camera: null,
     animationFrameId: null,
     cubes: null,
-    animatingCubes: []
+    animatingCubes: [],
+    isAnimating: false,
+    animationResolve: null,
+    lastTimestamp: 0
 }
 
 /**
@@ -176,6 +182,7 @@ function startRenderLoop() {
     
     const animate = (timestamp: number) => {
         state.animationFrameId = self.requestAnimationFrame(animate)
+        state.lastTimestamp = timestamp
         
         // Update animations
         updateAnimations(timestamp)
@@ -192,13 +199,21 @@ function startRenderLoop() {
  * @param {number} timestamp - Current timestamp
  */
 function updateAnimations(timestamp: number) {
-    if (!state.animatingCubes.length) return;
+    if (!state.animatingCubes.length) {
+        // If no more animations and we were waiting for completion, resolve the promise
+        if (state.isAnimating && state.animationResolve) {
+            state.isAnimating = false;
+            state.animationResolve();
+            state.animationResolve = null;
+        }
+        return;
+    }
     
     const ANIMATION_DURATION = 500; // Animation duration in milliseconds
     const remainingAnimations = [];
     
     for (const animation of state.animatingCubes) {
-        const { mesh, targetScale, startTime } = animation;
+        const { mesh, targetScale, startTime, progress: currentProgress } = animation;
         const elapsed = timestamp - startTime;
         const progress = Math.min(elapsed / ANIMATION_DURATION, 1);
         
@@ -212,7 +227,7 @@ function updateAnimations(timestamp: number) {
         
         // Keep animation if not complete
         if (progress < 1) {
-            remainingAnimations.push(animation);
+            remainingAnimations.push({...animation, progress});
         }
     }
     
@@ -231,8 +246,49 @@ function animateCubeAppearance(cube: THREE.Mesh) {
     state.animatingCubes.push({
         mesh: cube,
         targetScale: new THREE.Vector3(1, 1, 1),
-        startTime: performance.now()
+        startTime: state.lastTimestamp || performance.now(),
+        progress: 0
     });
+    
+    // Set animation flag
+    state.isAnimating = true;
+}
+
+/**
+ * Waits for all current animations to complete
+ * @returns {Promise<void>} Promise that resolves when animations are complete
+ */
+function waitForAnimations(): Promise<void> {
+    // If no animations are running, resolve immediately
+    if (!state.isAnimating || state.animatingCubes.length === 0) {
+        return Promise.resolve();
+    }
+    
+    // Otherwise, return a promise that will be resolved when animations complete
+    return new Promise<void>((resolve) => {
+        state.animationResolve = resolve;
+    });
+}
+
+/**
+ * Manually advances animations by a specified number of frames
+ * @param {number} frames - Number of frames to advance
+ * @returns {Promise<void>} Promise that resolves when the frames have been processed
+ */
+async function advanceAnimationFrames(frames: number = 1): Promise<void> {
+    if (!state.three || !state.scene || !state.camera) {
+        throw new Error('Renderer, scene, or camera not initialized');
+    }
+    
+    // Process the specified number of frames
+    for (let i = 0; i < frames; i++) {
+        const now = performance.now();
+        updateAnimations(now);
+        state.three.render(state.scene, state.camera);
+        
+        // Small delay to allow other processing
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
 }
 
 /**
@@ -250,8 +306,9 @@ function stopRenderLoop() {
  * @param {Object} data - Code execution data
  * @param {string} data.code - Python code to execute
  * @param {number} data.gridSize - Size of the grid
+ * @returns {Promise<void>} Promise that resolves when execution is complete
  */
-async function runPythonCode(data: any) {
+async function runPythonCode(data: any): Promise<void> {
     try {
         const { code, gridSize } = data
         
@@ -272,7 +329,9 @@ async function runPythonCode(data: any) {
         
         // Clear any ongoing animations
         state.animatingCubes = [];
+        state.isAnimating = false;
         
+        // Parse the Python code
         const codeAst = state.interpreter.parse(code)
         
         // Calculate center of grid
@@ -298,30 +357,47 @@ async function runPythonCode(data: any) {
         coordinates.sort((a, b) => a.distance - b.distance);
         
         // Process coordinates in batches
-        const animationBatchSize = 10;
+        const animationBatchSize = 15;
         let animationCount = 0;
         
         for (const coord of coordinates) {
             const { x, y, z } = coord;
-            const result = state.interpreter.eval(codeAst, context, ["draw", x, y, z, gridSize]);
             
-            if (result && state.cubes[x][y][z]) {
-                // Queue cube for animation
-                animateCubeAppearance(state.cubes[x][y][z]);
-                animationCount++;
+            // Evaluate Python code for this coordinate
+            try {
+                const result = state.interpreter.eval(codeAst, context, ["draw", x, y, z, gridSize]);
+                
+                if (result && state.cubes[x][y][z]) {
+                    // Queue cube for animation
+                    animateCubeAppearance(state.cubes[x][y][z]);
+                    animationCount++;
+                }
+            } catch (err) {
+                const error = err instanceof Error ? err : new Error(String(err));
+                throw new Error(`Error at coordinate (${x},${y},${z}): ${error.message}`);
             }
             
-            // Pause after each batch without yielding
+            // After each batch, manually advance animations and wait if needed
             if (animationCount >= animationBatchSize) {
                 animationCount = 0;
-                // This pause allows animations to progress
-                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Manually advance animations by a few frames
+                await advanceAnimationFrames(3);
+                
+                // If too many animations are queued, wait for some to complete
+                if (state.animatingCubes.length > 50) {
+                    await waitForAnimations();
+                }
             }
         }
         
+        // Wait for all remaining animations to complete
+        await waitForAnimations();
+        
         self.postMessage({ type: 'runPythonCode', status: 'success' })
     } catch (error) {
-        self.postMessage({ type: 'error', message: `Code execution failed: ${error.message}` })
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        self.postMessage({ type: 'error', message: `Code execution failed: ${errorMessage}` })
     }
 }
 
@@ -368,10 +444,12 @@ self.onmessage = (e: any) => {
         // Handle promises
         if (result instanceof Promise) {
             result.catch(error => {
-                self.postMessage({ type: 'error', message: `Promise execution failed: ${error.message}` })
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                self.postMessage({ type: 'error', message: `Promise execution failed: ${errorMessage}` })
             });
         }
     } catch (error) {
-        self.postMessage({ type: 'error', message: `Handler execution failed: ${error.message}` })
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        self.postMessage({ type: 'error', message: `Handler execution failed: ${errorMessage}` })
     }
 }
