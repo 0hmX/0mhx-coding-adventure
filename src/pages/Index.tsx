@@ -129,7 +129,7 @@ def draw(X, Y, Z, GRID_SIZE):
   is_in_shell = inner_radius <= dist_from_center <= outer_radius
   if is_in_shell:
     if mod(floor(X) + floor(Y) + floor(Z), 2) == 0:
-      return True
+      return "red"
     else:
       return False
   else:
