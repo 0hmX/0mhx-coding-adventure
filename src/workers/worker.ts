@@ -1,5 +1,131 @@
 import { Interpreter, jsPython } from '../../submodules/jspython/src/interpreter'
 import * as THREE from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import {EventDispatcher} from 'three'
+
+function noop() {
+}
+
+class ElementProxyReceiver extends EventDispatcher {
+    style: any;
+    left: number = 0;
+    top: number = 0;
+    width: number = 0;
+    height: number = 0;
+    ownerDocument: any;
+
+    constructor() {
+        super();
+        // because OrbitControls try to set style.touchAction;
+        this.style = {};
+        
+        // Add ownerDocument with defaultView for OrbitControls
+        this.ownerDocument = {
+            defaultView: self
+        };
+    }
+    
+    get clientWidth() {
+        return this.width;
+    }
+    
+    get clientHeight() {
+        return this.height;
+    }
+    
+    // OrbitControls call these as of r132
+    setPointerCapture() { }
+    releasePointerCapture() { }
+    
+    // Add getRootNode method for OrbitControls
+    getRootNode() {
+        return this;
+    }
+    
+    getBoundingClientRect() {
+        return {
+            left: this.left,
+            top: this.top,
+            width: this.width,
+            height: this.height,
+            right: this.left + this.width,
+            bottom: this.top + this.height,
+        };
+    }
+    
+    handleEvent(data) {
+        if (data.type === 'size') {
+            this.left = data.left;
+            this.top = data.top;
+            this.width = data.width;
+            this.height = data.height;
+            return;
+        }
+
+        data.preventDefault = noop;
+        data.stopPropagation = noop;
+        // @ts-ignore
+        this.dispatchEvent(data);
+    }
+    
+    focus() {
+        // no-op
+    }
+}
+
+class ProxyManager {
+    targets: Record<any, any>
+
+	constructor() {
+
+		this.targets = {};
+		this.handleEvent = this.handleEvent.bind( this );
+
+	}
+	makeProxy( data ) {
+
+		const { id } = data;
+		const proxy = new ElementProxyReceiver();
+		this.targets[ id ] = proxy;
+
+	}
+	getProxy( id ) {
+
+		return this.targets[ id ];
+
+	}
+	handleEvent( data ) {
+
+		this.targets[ data.id ].handleEvent( data.data );
+
+	}
+
+}
+
+const proxyManager = new ProxyManager();
+
+function start( data ) {
+    console.log(data);
+    
+	const proxy = proxyManager.getProxy( data.canvasId );
+	proxy.ownerDocument = proxy; // HACK!
+    console.log('Starting worker with proxy:', proxy, proxyManager);
+    
+    // @ts-ignore
+	self.document = {}; // HACK!
+	init({
+		canvas: data.canvas,
+		inputElement: proxy,
+        ...data
+	} );
+
+}
+
+function makeProxy( data ) {
+
+	proxyManager.makeProxy( data );
+
+}
 
 /**
  * Context object containing built-in functions and constants available to Python code
@@ -51,12 +177,15 @@ type State = {
     interpreter: Interpreter | null,
     scene: THREE.Scene | null,
     camera: THREE.PerspectiveCamera | null,
+    controls: OrbitControls | null, // Add OrbitControls to state
     animationFrameId: number | null,
     cubes: THREE.Mesh[][][] | null,  // Array to store cube references
     animatingCubes: {mesh: THREE.Mesh, targetScale: THREE.Vector3, startTime: number, progress: number}[], // Track currently animating cubes
     isAnimating: boolean, // Flag to track if animations are in progress
     animationResolve: (() => void) | null, // Resolver function for animation completion
-    lastTimestamp: number // Last animation timestamp
+    lastTimestamp: number, // Last animation timestamp
+    canvasId: number | null, // Store canvas ID for event handling
+    eventTarget: EventTarget | null, // Event target for orbit controls
 }
 
 const state: State = {
@@ -64,12 +193,15 @@ const state: State = {
     interpreter: null,
     scene: null,
     camera: null,
+    controls: null,
     animationFrameId: null,
     cubes: null,
     animatingCubes: [],
     isAnimating: false,
     animationResolve: null,
-    lastTimestamp: 0
+    lastTimestamp: 0,
+    canvasId: null,
+    eventTarget: null
 }
 
 /**
@@ -79,10 +211,15 @@ const state: State = {
  * @param {number} data.width - Canvas width
  * @param {number} data.height - Canvas height
  * @param {number} data.gridSize - Size of the grid
+ * @param {number} data.canvasId - ID of the canvas proxy
+ * @param {boolean} data.enableOrbitControls - Whether to enable orbit controls
  */
 function init(data: any) {
     try {
-        const { canvas, width, height, gridSize } = data
+        const { canvas, width, height, gridSize, canvasId, enableOrbitControls = true, inputElement } = data
+        
+        // Store canvas ID
+        state.canvasId = canvasId;
         
         // Initialize interpreter
         state.interpreter = jsPython()
@@ -90,15 +227,33 @@ function init(data: any) {
         // Initialize Three.js renderer with offscreen canvas
         state.three = new THREE.WebGLRenderer({
             canvas,
-            alpha: true,
+            alpha: true, // Keep transparent background
             antialias: true,
         })
         state.three.setSize(width, height, false)
+        state.three.setClearColor(0x000000, 0) // Set clear color with 0 alpha (transparent)
         
         // Create scene and camera
         state.scene = new THREE.Scene()
         state.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
         state.camera.position.z = 15
+        
+        // Initialize orbit controls if enabled
+        if (enableOrbitControls && state.camera && inputElement) {
+            // Add missing methods to inputElement to make OrbitControls work
+            inputElement.getRootNode = () => inputElement;
+            inputElement.ownerDocument = {
+                defaultView: self
+            };
+            
+            state.controls = new OrbitControls(state.camera, inputElement);
+            state.controls.enableDamping = true;
+            state.controls.dampingFactor = 0.25;
+            state.controls.screenSpacePanning = false;
+            state.controls.maxPolarAngle = Math.PI / 1.5;
+            state.controls.minDistance = 5;
+            state.controls.maxDistance = 50;
+        }
         
         // Initialize cubes array
         initializeCubes(gridSize)
@@ -180,9 +335,23 @@ function startRenderLoop() {
         return
     }
     
+    // Add axis helper
+    const axisHelper = new THREE.AxesHelper(10)
+    state.scene.add(axisHelper)
+    
+    // Add grid helper
+    const gridHelper = new THREE.GridHelper(20, 20, 0x888888, 0x444444)
+    gridHelper.position.y = -0.5 // Position slightly below the objects
+    state.scene.add(gridHelper)
+    
     const animate = (timestamp: number) => {
         state.animationFrameId = self.requestAnimationFrame(animate)
         state.lastTimestamp = timestamp
+        
+        // Update orbit controls if available
+        if (state.controls) {
+            state.controls.update();
+        }
         
         // Update animations
         updateAnimations(timestamp)
@@ -425,7 +594,11 @@ function terminate() {
     }
 }
 
-const handler = { init, resize, runPythonCode, terminate }
+const handler = { init, resize, runPythonCode, terminate,
+    start,
+    makeProxy,
+	event: proxyManager.handleEvent,
+ }
 
 /**
  * Message handler for the worker
