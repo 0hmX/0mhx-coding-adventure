@@ -236,7 +236,11 @@ function init(data: any) {
         // Create scene and camera
         state.scene = new THREE.Scene()
         state.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
-        state.camera.position.z = 15
+        
+        // Position camera at a diagonal angle for better view
+        const cameraDistance = 15;
+        state.camera.position.set(cameraDistance * 0.7, cameraDistance * 0.5, cameraDistance * 0.7);
+        state.camera.lookAt(0, 0, 0);
         
         // Initialize orbit controls if enabled
         if (enableOrbitControls && state.camera && inputElement) {
@@ -253,6 +257,10 @@ function init(data: any) {
             state.controls.maxPolarAngle = Math.PI / 1.5;
             state.controls.minDistance = 5;
             state.controls.maxDistance = 50;
+            
+            // Set initial target to origin
+            state.controls.target.set(0, 0, 0);
+            state.controls.update();
         }
         
         // Initialize cubes array
