@@ -544,10 +544,30 @@ async function runPythonCode(data: any): Promise<void> {
             try {
                 const result = state.interpreter.eval(codeAst, context, ["draw", x, y, z, gridSize]);
                 
-                if (result && state.cubes[x][y][z]) {
-                    // Queue cube for animation
-                    animateCubeAppearance(state.cubes[x][y][z]);
-                    animationCount++;
+                // Process the result - now can be a string (color) or boolean
+                if (result !== null && result !== undefined) {
+                    const cube = state.cubes[x][y][z];
+                    if (cube) {
+                        // Set cube color based on result
+                        if (typeof result === 'string') {
+                            // If result is a string, use it as a color
+                            try {
+                                const material = cube.material as THREE.MeshBasicMaterial;
+                                material.color.set(result);
+                            } catch (colorError) {
+                                console.warn(`Invalid color value: ${result}, using default green`);
+                                const material = cube.material as THREE.MeshBasicMaterial;
+                                material.color.set(0x00ff00);
+                            }
+                        } else if (result === false) {
+                            // If explicitly false, don't show the cube
+                            continue;
+                        }
+                        
+                        // Queue cube for animation
+                        animateCubeAppearance(cube);
+                        animationCount++;
+                    }
                 }
             } catch (err) {
                 const error = err instanceof Error ? err : new Error(String(err));
