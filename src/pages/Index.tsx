@@ -115,24 +115,133 @@ const theme = {
  * Includes a function to determine pixel color based on 3D coordinates.
  * @type {string}
  */
-const DEFAULT_PYTHON_CODE = 
+const DEFAULT_PYTHON_CODE =
 `# Copyright (c) 2023 0hmX
 # SPDX-License-Identifier: MIT
 
+# String containing hex characters, needed by to_hex_byte_manual
+hex_chars = "0123456789ABCDEF"
+
+# Helper function to convert a byte value (0-255) to a 2-character hex string
+# Assumes 'floor' and 'mod' from the context are available in this scope.
+# Assumes string indexing (hex_chars[index]) and string concatenation work.
+def to_hex_byte_manual(byte_val):
+    # byte_val is an integer between 0 and 255 (clamped and floored value)
+    # Ensure integer division for high_nibble by dividing by 16.0 and flooring
+    high_nibble = floor(byte_val / 16.0)
+    # Calculate the low nibble using modulo 16
+    low_nibble = mod(byte_val, 16)
+
+    # Get the hex characters for each nibble using string indexing
+    char_high = hex_chars[high_nibble]
+    char_low = hex_chars[low_nibble]
+
+    # Concatenate the two characters to form the 2-character hex string
+    return char_high + char_low
+
+# Now, the draw function uses this helper function
+# Assuming X, Y, Z go from 0 to GRID_SIZE - 1 based on the center calculation
+# If X, Y, Z actually go from -GRID_SIZE/2 to GRID_SIZE/2 as per the comment,
+# the center should be 0.0. We are following the user's example code's center calculation.
+
 def draw(X, Y, Z, GRID_SIZE):
-  center = (GRID_SIZE - 1) / 2.0
+  # Calculate the center of the grid (using the user's example logic)
+  center_coord = (GRID_SIZE - 1) / 2.0
+  center_x = center_coord
+  center_y = center_coord
+  center_z = center_coord
+
+  # Calculate the 3D distance from the center
+  dx = X - center_x
+  dy = Y - center_y
+  dz = Z - center_z
+  # Use pow and sqrt from the context
   dist_from_center = sqrt(
-      (X - center)**2 + (Y - center)**2 + (Z - center)**2
+      pow(dx, 2) + pow(dy, 2) + pow(dz, 2)
   )
-  outer_radius = GRID_SIZE * 0.45
-  inner_radius = GRID_SIZE * 0.30
-  is_in_shell = inner_radius <= dist_from_center <= outer_radius
-  if is_in_shell:
-    if mod(floor(X) + floor(Y) + floor(Z), 2) == 0:
-      return "red"
+
+  # Define the maximum distance for the sphere boundary (outermost radius)
+  outermost_radius = GRID_SIZE * 0.49 # Adjust size as needed
+
+  # Check if the current point is within the defined spherical boundary
+  if dist_from_center <= outermost_radius:
+    # --- Calculate Gradient Factors ---
+
+    # Factor 't' for distance-based interpolation (0 at center, 1 at outermost_radius)
+    # Use max(0.0, dist_from_center) though dist_from_center is already >= 0
+    # Add a small epsilon to the divisor to prevent potential division by zero
+    # if outermost_radius were somehow 0.
+    t = max(0.0, dist_from_center) / (outermost_radius + 1e-9)
+
+    # Factor 'v' for vertical interpolation (0 at sphere bottom, 1 at sphere top)
+    # Calculate the min/max Y values for the sphere's vertical extent
+    sphere_min_y = center_y - outermost_radius
+    sphere_max_y = center_y + outermost_radius
+    sphere_height = sphere_max_y - sphere_min_y
+
+    # Avoid division by zero if sphere_height is zero (e.g., outermost_radius = 0)
+    if sphere_height == 0:
+        v = 0.5 # Default to the middle vertically if no height
     else:
-      return False
+        # Normalize Y position relative to the sphere's height
+        v = (Y - sphere_min_y) / sphere_height
+        # Clamp v between 0 and 1
+        v = max(0.0, min(1.0, v))
+
+    # --- Define Corner Colors (RGB 0-255) ---
+    # Avoid absolute red (#FF0000)
+    # Initialized separately
+
+    # Color at Center, Bottom (t=0, v=0): Dark Purple #4A235A
+    c00_r = 74
+    c00_g = 35
+    c00_b = 90
+
+    # Color at Center, Top (t=0, v=1): Light Aqua/Cyan #A9CCE3
+    c01_r = 169
+    c01_g = 204
+    c01_b = 227
+
+    # Color at Edge, Bottom (t=1, v=0): Forest Green #1E8449
+    c10_r = 30
+    c10_g = 132
+    c10_b = 73
+
+    # Color at Edge, Top (t=1, v=1): Mint Green/Teal #76D7C4
+    c11_r = 118
+    c11_g = 215
+    c11_b = 196
+
+    # --- Bilinear Interpolation ---
+    # C(t, v) = C00*(1-t)*(1-v) + C01*(1-t)*v + C10*t*(1-v) + C11*t*v
+
+    # Interpolate Red component
+    r = (c00_r * (1-t) * (1-v)) + (c01_r * (1-t) * v) + (c10_r * t * (1-v)) + (c11_r * t * v)
+
+    # Interpolate Green component
+    g = (c00_g * (1-t) * (1-v)) + (c01_g * (1-t) * v) + (c10_g * t * (1-v)) + (c11_g * t * v)
+
+    # Interpolate Blue component
+    b = (c00_b * (1-t) * (1-v)) + (c01_b * (1-t) * v) + (c10_b * t * (1-v)) + (c11_b * t * v)
+
+    # Clamp interpolated values to the valid 0-255 range and convert to integers
+    # Use floor and max/min from the context
+    ir = floor(max(0, min(255, r)))
+    ig = floor(max(0, min(255, g)))
+    ib = floor(max(0, min(255, b)))
+
+    # --- Use the defined Manual Hex Color Formatting Function ---
+
+    # Convert each color component to its 2-character hex representation
+    hex_r = to_hex_byte_manual(ir)
+    hex_g = to_hex_byte_manual(ig)
+    hex_b = to_hex_byte_manual(ib)
+
+    # Concatenate the parts to form the final hex color string
+    return "#" + hex_r + hex_g + hex_b
+
   else:
+    # Point is outside the defined spherical boundary, return False to not draw it.
     return False
 `;
 

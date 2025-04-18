@@ -3,8 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import {EventDispatcher} from 'three'
 
-function noop() {
-}
+function noop() {}
 
 class ElementProxyReceiver extends EventDispatcher {
     style: any;
@@ -167,6 +166,18 @@ const context = {
   "SQRT1_2": Math.SQRT1_2,
   "SQRT2": Math.SQRT2,
   "mod": (x: number, y: number) => x % y,
+  "div": (x: number, y: number) => x / y,
+  "range": (start: number, stop: number, step: number) => {
+    const result = [];
+    for (let i = start; i < stop; i += step) {
+      result.push(i);
+    }
+    return result;
+  },
+  "len": (x: any) => x.length,
+  "1e": Math.E,
+  "EULER": Math.E,
+  "TAU": Math.PI * 2,
 };
 
 /**
