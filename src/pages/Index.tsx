@@ -116,133 +116,101 @@ const theme = {
  * @type {string}
  */
 const DEFAULT_PYTHON_CODE =
-`# Copyright (c) 2023 0hmX
+`# Copyright (c) 2025 0hmX
 # SPDX-License-Identifier: MIT
 
-# String containing hex characters, needed by to_hex_byte_manual
-hex_chars = "0123456789ABCDEF"
+"""
+**This are the python vars and function you can use**
 
-# Helper function to convert a byte value (0-255) to a 2-character hex string
-# Assumes 'floor' and 'mod' from the context are available in this scope.
-# Assumes string indexing (hex_chars[index]) and string concatenation work.
-def to_hex_byte_manual(byte_val):
-    # byte_val is an integer between 0 and 255 (clamped and floored value)
-    # Ensure integer division for high_nibble by dividing by 16.0 and flooring
-    high_nibble = floor(byte_val / 16.0)
-    # Calculate the low nibble using modulo 16
-    low_nibble = mod(byte_val, 16)
+Utilities:
+print: Output to console
+range: Generate number array (start, stop, step)
+len: Get length
 
-    # Get the hex characters for each nibble using string indexing
-    char_high = hex_chars[high_nibble]
-    char_low = hex_chars[low_nibble]
+Basic Arithmetic:
+mod: Modulo (remainder)
+div: Division
 
-    # Concatenate the two characters to form the 2-character hex string
-    return char_high + char_low
+Math Functions:
+max: Maximum value
+min: Minimum value
+abs: Absolute value
+round: Round to nearest int
+floor: Round down to int
+ceil: Round up to int
+random: Random float 0-1
+sqrt: Square root
+sin: Sine (radians)
+cos: Cosine (radians)
+tan: Tangent (radians)
+asin: Arcsine (radians)
+acos: Arccosine (radians)
+atan: Arctangent (radians)
+atan2: Arctangent (y/x, radians)
+pow: Power (base^exponent)
+log: Natural log (base E)
+exp: E^x
+log10: Base-10 log
+log2: Base-2 log
+log1p: Natural log (1+x)
+hypot: Hypotenuse
 
-# Now, the draw function uses this helper function
-# Assuming X, Y, Z go from 0 to GRID_SIZE - 1 based on the center calculation
-# If X, Y, Z actually go from -GRID_SIZE/2 to GRID_SIZE/2 as per the comment,
-# the center should be 0.0. We are following the user's example code's center calculation.
+Constants:
+PI: Pi constant
+E: Euler's number (base E)
+1e: Alias for E
+EULER: Alias for E
+LN2: Natural log of 2
+LN10: Natural log of 10
+LOG2E: Base-2 log of E
+LOG10E: Base-10 log of E
+SQRT1_2: Square root of 1/2
+SQRT2: Square root of 2
+TAU: Tau constant (2*PI)
+"""
+
+def clamp(value, min_val, max_val):
+    return max(min_val, min(max_val, value))
 
 def draw(X, Y, Z, GRID_SIZE):
-  # Calculate the center of the grid (using the user's example logic)
-  center_coord = (GRID_SIZE - 1) / 2.0
-  center_x = center_coord
-  center_y = center_coord
-  center_z = center_coord
+    center_coord = (GRID_SIZE - 1) / 2.0
+    center_x = center_coord
+    center_y = center_coord
+    center_z = center_coord
 
-  # Calculate the 3D distance from the center
-  dx = X - center_x
-  dy = Y - center_y
-  dz = Z - center_z
-  # Use pow and sqrt from the context
-  dist_from_center = sqrt(
-      pow(dx, 2) + pow(dy, 2) + pow(dz, 2)
-  )
+    dx = X - center_x
+    dy = Y - center_y
+    dz = Z - center_z
 
-  # Define the maximum distance for the sphere boundary (outermost radius)
-  outermost_radius = GRID_SIZE * 0.49 # Adjust size as needed
+    major_radius = GRID_SIZE * 0.35
+    minor_radius = GRID_SIZE * 0.12
 
-  # Check if the current point is within the defined spherical boundary
-  if dist_from_center <= outermost_radius:
-    # --- Calculate Gradient Factors ---
+    if major_radius <= 0 or minor_radius <= 0:
+        return False
 
-    # Factor 't' for distance-based interpolation (0 at center, 1 at outermost_radius)
-    # Use max(0.0, dist_from_center) though dist_from_center is already >= 0
-    # Add a small epsilon to the divisor to prevent potential division by zero
-    # if outermost_radius were somehow 0.
-    t = max(0.0, dist_from_center) / (outermost_radius + 1e-9)
+    dist_xy = sqrt(pow(dx, 2) + pow(dy, 2))
+    epsilon = 1e-6
+    torus_check = pow(dist_xy - major_radius, 2) + pow(dz, 2)
 
-    # Factor 'v' for vertical interpolation (0 at sphere bottom, 1 at sphere top)
-    # Calculate the min/max Y values for the sphere's vertical extent
-    sphere_min_y = center_y - outermost_radius
-    sphere_max_y = center_y + outermost_radius
-    sphere_height = sphere_max_y - sphere_min_y
+    if torus_check <= pow(minor_radius, 2) + epsilon:
+        angle_major = atan2(dy, dx) + PI
+        ring_x = major_radius * cos(angle_major)
+        ring_y = major_radius * sin(angle_major)
+        vec_x = dx - ring_x
+        vec_y = dy - ring_y
+        vec_z = dz
+        radial_vec_component = vec_x * cos(angle_major) + vec_y * sin(angle_major)
+        angle_minor = atan2(vec_z, radial_vec_component) + PI
 
-    # Avoid division by zero if sphere_height is zero (e.g., outermost_radius = 0)
-    if sphere_height == 0:
-        v = 0.5 # Default to the middle vertically if no height
+        r_comp = floor(clamp((angle_major / (2 * PI)) * 255, 0, 255))
+        g_comp = floor(clamp((angle_minor / (2 * PI)) * 255, 0, 255))
+        blue_factor = clamp((dz / (minor_radius + epsilon)) * 0.5 + 0.5, 0, 1)
+        b_comp = floor(clamp(100 + blue_factor * 155, 0, 255))
+
+        # Return RGB values as a list [R, G, B]
+        return "rgb(" + r_comp + "," + g_comp + "," + b_comp + ")"
     else:
-        # Normalize Y position relative to the sphere's height
-        v = (Y - sphere_min_y) / sphere_height
-        # Clamp v between 0 and 1
-        v = max(0.0, min(1.0, v))
-
-    # --- Define Corner Colors (RGB 0-255) ---
-    # Avoid absolute red (#FF0000)
-    # Initialized separately
-
-    # Color at Center, Bottom (t=0, v=0): Dark Purple #4A235A
-    c00_r = 74
-    c00_g = 35
-    c00_b = 90
-
-    # Color at Center, Top (t=0, v=1): Light Aqua/Cyan #A9CCE3
-    c01_r = 169
-    c01_g = 204
-    c01_b = 227
-
-    # Color at Edge, Bottom (t=1, v=0): Forest Green #1E8449
-    c10_r = 30
-    c10_g = 132
-    c10_b = 73
-
-    # Color at Edge, Top (t=1, v=1): Mint Green/Teal #76D7C4
-    c11_r = 118
-    c11_g = 215
-    c11_b = 196
-
-    # --- Bilinear Interpolation ---
-    # C(t, v) = C00*(1-t)*(1-v) + C01*(1-t)*v + C10*t*(1-v) + C11*t*v
-
-    # Interpolate Red component
-    r = (c00_r * (1-t) * (1-v)) + (c01_r * (1-t) * v) + (c10_r * t * (1-v)) + (c11_r * t * v)
-
-    # Interpolate Green component
-    g = (c00_g * (1-t) * (1-v)) + (c01_g * (1-t) * v) + (c10_g * t * (1-v)) + (c11_g * t * v)
-
-    # Interpolate Blue component
-    b = (c00_b * (1-t) * (1-v)) + (c01_b * (1-t) * v) + (c10_b * t * (1-v)) + (c11_b * t * v)
-
-    # Clamp interpolated values to the valid 0-255 range and convert to integers
-    # Use floor and max/min from the context
-    ir = floor(max(0, min(255, r)))
-    ig = floor(max(0, min(255, g)))
-    ib = floor(max(0, min(255, b)))
-
-    # --- Use the defined Manual Hex Color Formatting Function ---
-
-    # Convert each color component to its 2-character hex representation
-    hex_r = to_hex_byte_manual(ir)
-    hex_g = to_hex_byte_manual(ig)
-    hex_b = to_hex_byte_manual(ib)
-
-    # Concatenate the parts to form the final hex color string
-    return "#" + hex_r + hex_g + hex_b
-
-  else:
-    # Point is outside the defined spherical boundary, return False to not draw it.
-    return False
+        return False
 `;
 
 /**
@@ -253,7 +221,7 @@ const Index = () => {
   /** State for the Python code in the editor */
   const [pythonCode, setPythonCode] = useState(DEFAULT_PYTHON_CODE);
   /** State for the size of the grid (N x N x N) */
-  const [gridSize, setGridSize] = useState(10);
+  const [gridSize, setGridSize] = useState(20);
   /** State to toggle the visibility of the grid lines on the canvas */
   const [showGrid, setShowGrid] = useState(true);
   /** State for the desired width of the canvas component */
