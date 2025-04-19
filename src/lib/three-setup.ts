@@ -70,12 +70,6 @@ export function addSceneExtras(state: WorkerState) {
     const axisHelper = new THREE.AxesHelper(Math.max(10, state.gridSize / 2 + 2));
     state.scene.add(axisHelper);
 
-    const gridHelperSize = Math.max(20, state.gridSize + 4);
-    const gridHelper = new THREE.GridHelper(gridHelperSize, gridHelperSize, 0x888888, 0x444444);
-    // Position grid helper slightly below the centered voxel grid origin
-    gridHelper.position.y = -0.5; // Assuming voxels are centered around y=0
-    state.scene.add(gridHelper);
-
     console.log('Scene extras (lights, helpers) added.');
 }
 
