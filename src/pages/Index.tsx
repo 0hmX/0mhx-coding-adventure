@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import CodeEditor from '../components/CodeEditor';
-import Canvas from '../components/Canvas';
-import Navbar from '../components/Navbar';
+import Navbar from '../components/Navbar'; // Keep Navbar for desktop
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -9,9 +7,14 @@ import {
 } from '@/components/ui/resizable';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { jsPython, type Interpreter } from '../../submodules/jspython/src/interpreter';
-import { Button } from '@/components/ui/button';
-import { Code, Cuboid, Play, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+// Import the new components
+import Header from '../components/Header';
+import MobileControls from '../components/MobileControls';
+import EditorPanel from '../components/EditorPanel';
+import CanvasPanel from '../components/CanvasPanel';
+// ControlBar is used within CanvasPanel, no direct import needed here
 
 /**
  * @typedef {object} ThemeColors
@@ -46,6 +49,8 @@ import { useToast } from '@/hooks/use-toast';
  * @property {string} borderRadius - Standard border radius for panels.
  * @property {string} padding - Standard padding value.
  * @property {string} controlBarHeight - Minimum height for the control bar.
+ * @property {string} panelShadow - Shadow for main panels.
+ * @property {string} buttonPadding - Padding for standard buttons.
  */
 
 /**
@@ -91,9 +96,7 @@ const theme = {
   },
   fonts: {
     primary: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
-    // Consider a more dramatic font if available, otherwise Palatino is fine
     header: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
-    // Example alternative: header: '"Creepster", cursive', // Needs Google Font import
   },
   layout: {
     borderRadius: '0.75rem', // Corresponds to rounded-xl
@@ -112,7 +115,6 @@ const theme = {
 
 /**
  * Default Python code provided in the editor.
- * Includes a function to determine pixel color based on 3D coordinates.
  * @type {string}
  */
 const DEFAULT_PYTHON_CODE =
@@ -218,36 +220,19 @@ def draw(X, Y, Z, GRID_SIZE):
  * @returns {JSX.Element} The rendered application UI.
  */
 const Index = () => {
-  /** State for the Python code in the editor */
   const [pythonCode, setPythonCode] = useState(DEFAULT_PYTHON_CODE);
-  /** State for the size of the grid (N x N x N) */
   const [gridSize, setGridSize] = useState(20);
-  /** State to toggle the visibility of the grid lines on the canvas */
   const [showGrid, setShowGrid] = useState(true);
-  /** State for the desired width of the canvas component */
-  const [canvasWidth, setCanvasWidth] = useState(500);
-  /** State for the desired height of the canvas component */
-  const [canvasHeight, setCanvasHeight] = useState(500);
-  /** State holding the js-python interpreter instance */
-  const [pythonInterpreter, setPythonInterpreter] =
-    useState<Interpreter | null>(null);
-  /** State indicating if the Python code is currently being executed */
+  const [canvasWidth, setCanvasWidth] = useState(500); // Consider making dynamic based on panel size
+  const [canvasHeight, setCanvasHeight] = useState(500); // Consider making dynamic based on panel size
+  const [pythonInterpreter, setPythonInterpreter] = useState<Interpreter | null>(null);
   const [isRunning, setIsRunning] = useState(false);
-  /** State acting as a trigger for the Canvas component to run the code */
   const [shouldRun, setShouldRun] = useState(false);
-  /** State to track errors in the Python code execution */
   const [error, setError] = useState<Error | null>(null);
-  /** Hook to detect if the current view is mobile */
   const isMobile = useIsMobile();
-  /** State to toggle between 'editor' and 'canvas' view on mobile */
   const [mobileView, setMobileView] = useState<'editor' | 'canvas'>('editor');
-  /** Toast hook for showing error notifications */
   const { toast } = useToast();
 
-  /**
-   * Initializes the js-python interpreter when the component mounts
-   * and cleans it up when the component unmounts.
-   */
   useEffect(() => {
     console.log('Initializing js-python interpreter...');
     const interp = jsPython();
@@ -256,117 +241,95 @@ const Index = () => {
 
     return () => {
       console.log('Cleaning up js-python interpreter...');
-      interp.cleanUp();
+      interp?.cleanUp();
       setPythonInterpreter(null);
     };
   }, []);
 
-  /**
-   * Updates the pythonCode state when the editor content changes.
-   * @param {string} newCode - The updated Python code.
-   */
   const handleCodeChange = (newCode: string) => {
     setPythonCode(newCode);
-    // Reset error state when code changes
     if (error) {
       setError(null);
     }
   };
 
-  /**
-   * Updates the gridSize state.
-   * @param {number} size - The new grid size.
-   */
   const handleGridSizeChange = (size: number) => {
-    setGridSize(size);
+    setGridSize(Math.max(1, size)); // Ensure size is at least 1
   };
 
-  /**
-   * Updates the showGrid state.
-   * @param {boolean} show - Whether to show the grid.
-   */
   const handleShowGridChange = (show: boolean) => {
     setShowGrid(show);
   };
 
-  /**
-   * Handles the click event of the 'Run' button.
-   * Sets flags to initiate code execution in the Canvas component.
-   */
   const handleRunCode = () => {
     if (!pythonInterpreter) {
       console.error('Python interpreter not initialized yet.');
+      toast({
+        title: "Interpreter Error",
+        description: "Python interpreter is not ready.",
+        variant: "destructive",
+      });
       return;
     }
-    
-    // Reset error state before running
-    setError(null);
-    
-    // Try to parse the code first to catch syntax errors
+    if (isRunning) {
+        console.log('Already running code.');
+        return;
+    }
+
+    setError(null); // Reset error state
+
     try {
+      // Attempt to parse the code to catch syntax errors early
       pythonInterpreter.parse(pythonCode);
+      console.log('Python code parsed successfully.');
+
+      // If parsing is successful, proceed to run
+      console.log('Run button clicked, setting shouldRun=true');
+      setIsRunning(true);
+      setShouldRun(true); // Trigger run in CanvasPanel
+
     } catch (err) {
       console.error('Python syntax error:', err);
       const syntaxError = err instanceof Error ? err : new Error(String(err));
       setError(syntaxError);
       toast({
         title: "Syntax Error",
-        description: syntaxError.message,
+        description: syntaxError.message || 'Invalid Python syntax.',
         variant: "destructive",
       });
-      return;
+      setIsRunning(false); // Ensure isRunning is false if parsing fails
+      setShouldRun(false);
     }
-    
-    console.log('Run button clicked, setting shouldRun=true');
-    setIsRunning(true);
-    setShouldRun(true);
   };
 
-  /**
-   * Callback function passed to the Canvas component.
-   * Called when the canvas finishes executing the Python code.
-   * Resets the execution flags.
-   */
   const handleRunComplete = (err?: Error) => {
     console.log('Canvas reported run complete, setting shouldRun=false');
     setShouldRun(false);
     setIsRunning(false);
-    
+
     if (err) {
       console.error('Error during Python execution:', err);
       setError(err);
       toast({
         title: "Execution Error",
-        description: err.message || 'An error occurred while running your code',
+        description: err.message || 'An error occurred while running your code.',
         variant: "destructive",
       });
+    } else {
+        // Optionally show a success toast
+        // toast({ title: "Success", description: "Code executed successfully." });
     }
   };
 
-  /**
-   * Toggles the view between the code editor and the canvas on mobile devices.
-   */
   const toggleMobileView = () => {
     setMobileView(prev => (prev === 'editor' ? 'canvas' : 'editor'));
   };
 
-  // Define the complex text shadow for the blood drip effect
-  const bloodDripShadow = `
-    1px 1px 1px ${theme.colors.bloodShadowDark},
-    0px 2px 1px ${theme.colors.bloodShadowDark},
-    0px 4px 3px ${theme.colors.bloodShadowMid},
-    0px 6px 5px ${theme.colors.bloodShadowLight},
-    0px 8px 8px ${theme.colors.bloodShadowLight}
-  `;
-  // Optional: Add slight variations for specific letters if desired,
-  // but that would require spans or more complex CSS selectors.
-
-  // Check if there's an error
   const hasError = error !== null;
 
   return (
     <div
-      className="min-h-screen w-screen overflow-hidden p-4"
+      className="min-h-screen w-screen overflow-hidden p-4 flex flex-col"
       style={{
         backgroundImage: theme.background.image,
         backgroundSize: theme.background.size,
@@ -374,20 +337,8 @@ const Index = () => {
         backgroundAttachment: theme.background.attachment,
       }}
     >
-      <div className="mb-4 text-center">
-        <h1
-          className="text-4xl font-bold" // Keep font-bold for weight
-          style={{
-            color: theme.colors.bloodRed, // Use the deep red color
-            fontFamily: theme.fonts.header,
-            textShadow: bloodDripShadow, // Apply the dripping shadow effect
-            // Optional: Add a very slight rotation for unease
-            // transform: 'rotate(-1deg)',
-          }}
-        >
-          Created By 0hmX
-        </h1>
-      </div>
+      {/* Pass theme to Header */}
+      <Header theme={theme} />
 
       {/* Show Navbar only on desktop */}
       {!isMobile && (
@@ -398,292 +349,91 @@ const Index = () => {
 
       {/* Mobile view controls */}
       {isMobile && (
-        <>
-          <div className="mb-4 flex justify-center">
-            <Button onClick={toggleMobileView} className="rounded-full relative overflow-hidden"
-            style={{
-              backgroundColor: theme.colors.primary,
-              color: theme.colors.textPrimary,
-              border: `2px solid ${theme.colors.border}`,
-              boxShadow: `0 2px 4px ${theme.colors.shadow}`,
-              padding: theme.layout.buttonPadding,
-              fontFamily: theme.fonts.primary,
-              transition: 'all 0.2s ease',
-            }}
-            >
-              <span className="flex items-center">
-                {mobileView === 'editor' ? (
-                  <>
-                    <Cuboid className="mr-2 h-4 w-4" />
-                    Switch to Canvas
-                  </>
-                ) : (
-                  <>
-                    <Code className="mr-2 h-4 w-4" />
-                    Switch to Editor
-                  </>
-                )}
-              </span>
-            </Button>
-          </div>
+        <MobileControls
+          theme={theme}
+          mobileView={mobileView}
+          onToggle={toggleMobileView}
+          isRunning={isRunning}
+          hasError={hasError}
+          onRunCode={handleRunCode}
+        />
+      )}
 
-          {/* Floating action button for run */}
+      {/* Main Content Area (Mobile or Desktop) */}
+      <div className={`flex-grow ${isMobile ? 'h-[calc(100vh-220px)]' : 'h-[calc(100vh-180px)]'}`}>
+        {isMobile ? (
+          // Mobile Layout: Switch between Editor and Canvas
           <div
-            className="absolute bottom-16 right-6 z-50 animate-in fade-in duration-300"
-            style={{
-              filter: `drop-shadow(0 4px 8px ${theme.colors.shadow})`,
-              transform: 'scale(1.2)',
-            }}
+            className="h-full w-full overflow-hidden rounded-xl"
+            style={{ boxShadow: theme.layout.panelShadow }}
           >
-            <Button
-              onClick={handleRunCode}
-              disabled={isRunning}
-              className="h-16 w-16 rounded-full hover:scale-110 transition-transform"
-              style={{
-                backgroundColor: hasError 
-                  ? '#8b0000' // Use bloodRed for error state
-                  : isRunning 
-                    ? theme.colors.secondary 
-                    : theme.colors.primary,
-                color: theme.colors.textPrimary,
-                border: `2px solid ${hasError ? '#ff6b6b' : theme.colors.border}`,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-              }}
-            >
-              {hasError ? (
-                <AlertTriangle className="h-8 w-8" />
-              ) : (
-                <Play className={`h-8 w-8 ${isRunning ? 'animate-pulse' : ''}`} />
-              )}
-            </Button>
+            {mobileView === 'editor' ? (
+              <EditorPanel
+                theme={theme}
+                pythonCode={pythonCode}
+                onCodeChange={handleCodeChange}
+                isMobile={true}
+              />
+            ) : (
+              <CanvasPanel
+                theme={theme}
+                canvasWidth={canvasWidth} // Adjust width/height for mobile?
+                canvasHeight={canvasHeight}
+                gridSize={gridSize}
+                showGrid={showGrid}
+                pythonCode={pythonCode}
+                pythonInterpreter={pythonInterpreter}
+                shouldRun={shouldRun}
+                onRunComplete={handleRunComplete}
+                onGridSizeChange={handleGridSizeChange}
+                onShowGridChange={handleShowGridChange}
+                isMobile={true}
+              />
+            )}
           </div>
-        </>
-      )}
+        ) : (
+          // Desktop Layout: Resizable Panels
+          <ResizablePanelGroup
+            direction="horizontal"
+            className="w-full h-full rounded-xl overflow-hidden" // Ensure group takes full height
+            style={{ boxShadow: theme.layout.panelShadow }}
+          >
+            <ResizablePanel defaultSize={50} minSize={30}>
+              <EditorPanel
+                theme={theme}
+                pythonCode={pythonCode}
+                onCodeChange={handleCodeChange}
+                isMobile={false}
+              />
+            </ResizablePanel>
 
-      {isMobile ? (
-        <div
-          className="h-[calc(100vh-220px)] w-full overflow-hidden rounded-xl"
-          style={{ boxShadow: theme.layout.panelShadow }}
-        >
-          {mobileView === 'editor' ? (
-            <div
-              className="flex h-full flex-col overflow-hidden rounded-xl border"
+            <ResizableHandle
+              withHandle
+              className="transition-colors duration-200"
               style={{
-                backgroundColor: theme.colors.panelBg,
-                borderColor: theme.colors.border,
+                backgroundColor: theme.colors.handleBg,
               }}
-            >
-              <div className="relative flex-grow">
-                <CodeEditor
-                  language="python"
-                  initialValue={pythonCode}
-                  onChange={handleCodeChange}
-                />
-              </div>
-            </div>
-          ) : (
-            <div
-              className="relative h-full overflow-hidden rounded-xl border"
-              style={{
-                backgroundColor: theme.colors.panelBg,
-                borderColor: theme.colors.border,
-              }}
-            >
-              <div className="flex h-full flex-col">
-                <div className="flex-grow flex items-center justify-center overflow-hidden">
-                  <Canvas
-                    width={canvasWidth}
-                    height={canvasHeight}
-                    gridSize={gridSize}
-                    showGrid={showGrid}
-                    pythonCode={pythonCode}
-                    pythonInterpreter={pythonInterpreter}
-                    shouldRun={shouldRun}
-                    onRunComplete={handleRunComplete}
-                  />
-                </div>
-                <div
-                  className="w-full flex-shrink-0 mt-auto"
-                  style={{
-                    backgroundColor: theme.colors.secondary,
-                    borderTop: `1px solid ${theme.colors.border}`,
-                    padding: '12px',
-                    minHeight: theme.layout.controlBarHeight,
-                  }}
-                >
-                  <div className="flex justify-center items-center gap-8">
-                    <div className="flex items-center">
-                      <label
-                        className="font-semibold mr-2"
-                        style={{
-                          fontFamily: theme.fonts.primary,
-                          color: theme.colors.textSecondary,
-                        }}
-                      >
-                        Grid Size
-                      </label>
-                      <input
-                        type="number"
-                        value={gridSize}
-                        onChange={e =>
-                          handleGridSizeChange(parseInt(e.target.value) || 10)
-                        }
-                        className="w-16 px-2 py-1 rounded"
-                        style={{
-                          border: `1px solid ${theme.colors.inputBorder}`,
-                          backgroundColor: theme.colors.inputBg,
-                          color: theme.colors.textSecondary, // Ensure text is visible
-                        }}
-                      />
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="showGridMobile" /** Unique ID for mobile */
-                        checked={showGrid}
-                        onChange={e => handleShowGridChange(e.target.checked)}
-                        className="mr-2 h-4 w-4"
-                        style={{ accentColor: theme.colors.checkboxAccent }}
-                      />
-                      <label
-                        htmlFor="showGridMobile"
-                        className="font-semibold"
-                        style={{
-                          fontFamily: theme.fonts.primary,
-                          color: theme.colors.textSecondary,
-                        }}
-                      >
-                        Show Grid
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        // Desktop layout with resizable panels
-        <div className='h-[calc(100vh-180px)]'>
-        <ResizablePanelGroup
-          direction="horizontal"
-          // Added mb-4 here for the bottom gap
-          className="w-full rounded-xl overflow-hidden mb-10"
-          style={{ boxShadow: theme.layout.panelShadow }}
-        >
-          <ResizablePanel defaultSize={50} minSize={30}>
-            <div
-              className="flex h-full flex-col overflow-hidden rounded-l-xl border"
-              style={{
-                backgroundColor: theme.colors.panelBg,
-                borderColor: theme.colors.border,
-                borderRightWidth: 0,
-              }}
-            >
-              <div className="relative flex-grow">
-                <CodeEditor
-                  language="python"
-                  initialValue={pythonCode}
-                  onChange={handleCodeChange}
-                />
-              </div>
-            </div>
-          </ResizablePanel>
+            />
 
-          <ResizableHandle
-            withHandle
-            className="transition-colors duration-200"
-            style={{
-              backgroundColor: theme.colors.handleBg,
-            }}
-          />
-
-          <ResizablePanel defaultSize={50} minSize={30}>
-            <div
-              className="relative h-full overflow-hidden rounded-r-xl border"
-              style={{
-                backgroundColor: theme.colors.panelBg,
-                borderColor: theme.colors.border,
-                borderLeftWidth: 0,
-              }}
-            >
-              <div className="flex h-full flex-col">
-                <div className="flex-grow flex items-center justify-center overflow-hidden p-2">
-                  <Canvas
-                    width={canvasWidth}
-                    height={canvasHeight}
-                    gridSize={gridSize}
-                    showGrid={showGrid}
-                    pythonCode={pythonCode}
-                    pythonInterpreter={pythonInterpreter}
-                    shouldRun={shouldRun}
-                    onRunComplete={handleRunComplete}
-                  />
-                </div>
-                <div
-                  className="w-full flex-shrink-0 mt-auto"
-                  style={{
-                    backgroundColor: theme.colors.secondary,
-                    borderTop: `1px solid ${theme.colors.border}`,
-                    padding: '12px',
-                    minHeight: theme.layout.controlBarHeight,
-                    borderBottomLeftRadius: theme.layout.borderRadius,
-                    borderBottomRightRadius: theme.layout.borderRadius,
-                  }}
-                >
-                  <div className="flex justify-center items-center gap-8">
-                    <div className="flex items-center">
-                      <label
-                        className="font-semibold mr-2"
-                        style={{
-                          fontFamily: theme.fonts.primary,
-                          color: theme.colors.textSecondary,
-                        }}
-                      >
-                        Grid Size
-                      </label>
-                      <input
-                        type="number"
-                        value={gridSize}
-                        onChange={e =>
-                          handleGridSizeChange(parseInt(e.target.value) || 10)
-                        }
-                        className="w-16 px-2 py-1 rounded"
-                        style={{
-                          border: `1px solid ${theme.colors.inputBorder}`,
-                          backgroundColor: theme.colors.inputBg,
-                          color: theme.colors.textSecondary,
-                        }}
-                      />
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="showGridDesktop" /** Unique ID for desktop */
-                        checked={showGrid}
-                        onChange={e => handleShowGridChange(e.target.checked)}
-                        className="mr-2 h-4 w-4"
-                        style={{ accentColor: theme.colors.checkboxAccent }}
-                      />
-                      <label
-                        htmlFor="showGridDesktop"
-                        className="font-semibold"
-                        style={{
-                          fontFamily: theme.fonts.primary,
-                          color: theme.colors.textSecondary,
-                        }}
-                      >
-                        Show Grid
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+            <ResizablePanel defaultSize={50} minSize={30}>
+              <CanvasPanel
+                theme={theme}
+                canvasWidth={canvasWidth} // Consider adjusting based on panel size
+                canvasHeight={canvasHeight}
+                gridSize={gridSize}
+                showGrid={showGrid}
+                pythonCode={pythonCode}
+                pythonInterpreter={pythonInterpreter}
+                shouldRun={shouldRun}
+                onRunComplete={handleRunComplete}
+                onGridSizeChange={handleGridSizeChange}
+                onShowGridChange={handleShowGridChange}
+                isMobile={false}
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
       </div>
-      )}
     </div>
   );
 };
