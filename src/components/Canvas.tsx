@@ -227,7 +227,7 @@ const Canvas: React.FC<CanvasProps> = ({
     if (globalContext.worker) return;
     
     // Create worker
-    const worker = new Worker(new URL('../workers/worker.ts', import.meta.url), { type: 'module' });
+    const worker = new Worker(new URL('../workers/canvas.ts', import.meta.url), { type: 'module' });
     globalContext.worker = worker;
     
     // Handle messages from worker
