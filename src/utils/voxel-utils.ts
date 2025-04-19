@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import type { WorkerState } from '../workers/canvas'; // Assuming state type is defined in main worker file
 
+// Define Voxel Data Type (can be shared or defined here if not already shared)
+type VoxelDataType = (string | null)[][][];
+
 // Define face data for voxel geometry generation
 export const VoxelFaces = [
     { dir: [-1, 0, 0], corners: [[0, 1, 0], [0, 0, 0], [0, 1, 1], [0, 0, 1]] }, // left
@@ -12,6 +15,25 @@ export const VoxelFaces = [
 ];
 
 /**
+ * Creates and initializes a 3D array for voxel data.
+ * @param gridSize The size of the grid (width, height, depth).
+ * @returns A new VoxelDataType array filled with null.
+ */
+export function createVoxelDataArray(gridSize: number): VoxelDataType {
+    const data: VoxelDataType = [];
+    for (let x = 0; x < gridSize; x++) {
+        data[x] = [];
+        for (let y = 0; y < gridSize; y++) {
+            data[x][y] = [];
+            for (let z = 0; z < gridSize; z++) {
+                data[x][y][z] = null; // Initialize with null (empty)
+            }
+        }
+    }
+    return data;
+}
+
+/**
  * Helper function to safely get voxel data from state
  */
 export function getVoxelColor(state: WorkerState, x: number, y: number, z: number): string | null {
@@ -19,7 +41,8 @@ export function getVoxelColor(state: WorkerState, x: number, y: number, z: numbe
     if (!voxelData || x < 0 || x >= gridSize || y < 0 || y >= gridSize || z < 0 || z >= gridSize) {
         return null; // Out of bounds or not initialized
     }
-    return voxelData[x][y][z];
+    // Ensure indices are valid before accessing
+    return voxelData[x]?.[y]?.[z] ?? null;
 }
 
 /**
@@ -28,7 +51,9 @@ export function getVoxelColor(state: WorkerState, x: number, y: number, z: numbe
 export function generateVoxelGeometry(state: WorkerState): THREE.BufferGeometry {
     const { gridSize, voxelData } = state;
     if (!voxelData) {
-        throw new Error("Voxel data not initialized");
+        // Return an empty geometry instead of throwing an error
+        console.warn("generateVoxelGeometry called with uninitialized voxelData.");
+        return new THREE.BufferGeometry();
     }
 
     const positions: number[] = [];
@@ -56,13 +81,15 @@ export function generateVoxelGeometry(state: WorkerState): THREE.BufferGeometry 
                     for (const { dir, corners } of VoxelFaces) {
                         const neighborColor = getVoxelColor(state, x + dir[0], y + dir[1], z + dir[2]);
 
-                        if (!neighborColor) { // If neighbor is empty, add this face
+                        if (!neighborColor) { // If neighbor is empty or out of bounds, add this face
                             const ndx = positions.length / 3;
                             for (const pos of corners) {
+                                // Apply centering offset here
                                 positions.push(pos[0] + x - centerOffset, pos[1] + y - centerOffset, pos[2] + z - centerOffset);
                                 normals.push(...dir);
                                 colors.push(tempColor.r, tempColor.g, tempColor.b);
                             }
+                            // Add indices for the two triangles forming the quad face
                             indices.push(ndx, ndx + 1, ndx + 2, ndx + 2, ndx + 1, ndx + 3);
                         }
                     }
@@ -72,16 +99,18 @@ export function generateVoxelGeometry(state: WorkerState): THREE.BufferGeometry 
     }
 
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    geometry.setIndex(indices);
-
-    if (indices.length > 0) {
-        geometry.computeBoundingSphere();
+    // Set attributes only if there's data
+    if (positions.length > 0) {
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        geometry.setIndex(indices);
+        geometry.computeBoundingSphere(); // Compute bounds if geometry is not empty
     } else {
+        // Ensure an empty geometry still has a bounding sphere if needed elsewhere
         geometry.boundingSphere = new THREE.Sphere();
     }
+
 
     return geometry;
 }
@@ -90,75 +119,70 @@ export function generateVoxelGeometry(state: WorkerState): THREE.BufferGeometry 
  * Updates the voxel mesh in the scene based on current voxelData in state
  */
 export function updateVoxelMesh(state: WorkerState) {
-    if (!state.scene) return;
+    if (!state.scene) {
+        console.warn("updateVoxelMesh called before scene is initialized.");
+        return;
+    }
 
     // Remove and dispose old mesh if it exists
-    if (state.voxelMesh) {
-        state.scene.remove(state.voxelMesh);
-        state.voxelMesh.geometry.dispose();
-        if (Array.isArray(state.voxelMesh.material)) {
-            state.voxelMesh.material.forEach(m => m.dispose());
-        } else {
-            state.voxelMesh.material.dispose();
-        }
-        state.voxelMesh = null;
-    }
+    disposeVoxelResources(state); // Use the dedicated dispose function
 
     // Generate new geometry using the state
     const geometry = generateVoxelGeometry(state);
 
     // Create new mesh only if geometry has vertices
     if (geometry.index && geometry.index.count > 0) {
+        // Use MeshLambertMaterial for vertex colors and lighting interaction
         const material = new THREE.MeshLambertMaterial({ vertexColors: true });
         state.voxelMesh = new THREE.Mesh(geometry, material);
         state.scene.add(state.voxelMesh);
         console.log(`Voxel mesh updated with ${geometry.index.count / 3} faces.`);
     } else {
-        geometry.dispose(); // Dispose empty geometry
+        geometry.dispose(); // Dispose the empty geometry
+        state.voxelMesh = null; // Ensure state reflects no mesh
         console.log("Voxel mesh updated (empty).");
     }
 }
 
 /**
- * Resets the voxel data array in the state to all null.
+ * Resets the voxel data in the worker state.
+ * @param state The worker state.
  */
 export function resetVoxelData(state: WorkerState) {
-    const { gridSize } = state;
-    if (!state.voxelData || state.voxelData.length !== gridSize) {
-        // Initialize if not present or wrong size
-        state.voxelData = Array(gridSize).fill(null).map(() =>
-            Array(gridSize).fill(null).map(() =>
-                Array(gridSize).fill(null)
-            )
-        );
+    if (state.gridSize > 0) {
+        console.log(`Resetting voxel data for grid size: ${state.gridSize}`);
+        state.voxelData = createVoxelDataArray(state.gridSize); // Use the helper function
+        // Update the mesh to reflect the reset (will become empty)
+        updateVoxelMesh(state);
     } else {
-        // Reset existing array
-        for (let x = 0; x < gridSize; x++) {
-            for (let y = 0; y < gridSize; y++) {
-                for (let z = 0; z < gridSize; z++) {
-                    state.voxelData[x][y][z] = null;
-                }
-            }
-        }
+        console.warn("Cannot reset voxel data: Grid size is not positive.");
+        state.voxelData = null;
+        // Also update the mesh if grid size is invalid
+        updateVoxelMesh(state);
     }
-    console.log(`Voxel data reset for grid size ${gridSize}`);
 }
 
 /**
- * Disposes the geometry and material of the voxel mesh.
+ * Disposes the geometry and material of the voxel mesh if it exists.
  */
 export function disposeVoxelResources(state: WorkerState) {
     if (state.voxelMesh) {
         console.log("Disposing voxel mesh resources...");
+        // Remove from scene first
+        state.scene?.remove(state.voxelMesh);
+
+        // Dispose geometry
         state.voxelMesh.geometry?.dispose();
+
+        // Dispose material(s)
         if (Array.isArray(state.voxelMesh.material)) {
             state.voxelMesh.material.forEach(m => m.dispose());
         } else {
             state.voxelMesh.material?.dispose();
         }
-        // Remove reference from state after disposal
+
+        // Clear the reference in state
         state.voxelMesh = null;
-    } else {
-        console.log("No voxel mesh resources to dispose.");
+        console.log("Disposed voxel mesh resources.");
     }
 }
