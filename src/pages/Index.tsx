@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Navbar from '../components/Navbar'; // Keep Navbar for desktop
+import Navbar from '../components/Navbar';
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -8,99 +8,87 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile';
 import { jsPython, type Interpreter } from '../../submodules/jspython/src/interpreter';
 import { useToast } from '@/hooks/use-toast';
-
-// Import the new components
 import Header from '../components/Header';
 import MobileControls from '../components/MobileControls';
 import EditorPanel from '../components/EditorPanel';
 import CanvasPanel from '../components/CanvasPanel';
-// ControlBar is used within CanvasPanel, no direct import needed here
 
-/**
- * @typedef {object} ThemeColors
- * @property {string} primary - Primary interactive color (e.g., buttons).
- * @property {string} secondary - Secondary background/accent color.
- * @property {string} background - Main background color/image.
- * @property {string} panelBg - Background for code editor and canvas panels.
- * @property {string} textPrimary - Primary text color, often on dark backgrounds.
- * @property {string} textSecondary - Secondary text color, often for labels.
- * @property {string} textHeader - Color for the main header text (original).
- * @property {string} bloodRed - Deep red color for the styled header.
- * @property {string} border - Border color for panels and elements.
- * @property {string} inputBg - Background color for input fields.
- * @property {string} inputBorder - Border color for input fields.
- * @property {string} checkboxAccent - Accent color for checkboxes.
- * @property {string} handleBg - Background color for the resizable handle.
- * @property {string} shadow - Default box shadow color/value.
- * @property {string} textShadow - Default text shadow color/value.
- * @property {string} bloodShadowDark - Darker shadow for blood effect.
- * @property {string} bloodShadowMid - Mid-tone shadow for blood effect.
- * @property {string} bloodShadowLight - Lighter shadow for blood effect.
- */
+type ThemeColors = {
+  primary: string;
+  secondary: string;
+  background: string;
+  panelBg: string;
+  textPrimary: string;
+  textSecondary: string;
+  textHeader: string;
+  bloodRed: string;
+  border: string;
+  inputBg: string;
+  inputBorder: string;
+  checkboxAccent: string;
+  handleBg: string;
+  shadow: string;
+  textShadow: string;
+  bloodShadowDark: string;
+  bloodShadowMid: string;
+  bloodShadowLight: string;
+};
 
-/**
- * @typedef {object} ThemeFonts
- * @property {string} primary - Primary font family for UI text.
- * @property {string} header - Font family specifically for the main header.
- */
+type ThemeFonts = {
+  primary: string;
+  header: string;
+};
 
-/**
- * @typedef {object} ThemeLayout
- * @property {string} borderRadius - Standard border radius for panels.
- * @property {string} padding - Standard padding value.
- * @property {string} controlBarHeight - Minimum height for the control bar.
- * @property {string} panelShadow - Shadow for main panels.
- * @property {string} buttonPadding - Padding for standard buttons.
- */
+type ThemeLayout = {
+  borderRadius: string;
+  padding: string;
+  controlBarHeight: string;
+  panelShadow: string;
+  buttonPadding: string;
+};
 
-/**
- * @typedef {object} ThemeBackground
- * @property {string} image - URL for the background image.
- * @property {string} size - Background size property.
- * @property {string} position - Background position property.
- * @property {string} attachment - Background attachment property.
- */
+type ThemeBackground = {
+  image: string;
+  size: string;
+  position: string;
+  attachment: string;
+};
 
-/**
- * @typedef {object} Theme
- * @property {ThemeColors} colors - Color palette.
- * @property {ThemeFonts} fonts - Font families.
- * @property {ThemeLayout} layout - Layout properties like padding and border radius.
- * @property {ThemeBackground} background - Background image properties.
- */
+type Theme = {
+  colors: ThemeColors;
+  fonts: ThemeFonts;
+  layout: ThemeLayout;
+  background: ThemeBackground;
+};
 
-/**
- * Theme object defining the visual style of the application.
- * @type {Theme}
- */
-const theme = {
+const theme: Theme = {
   colors: {
-    primary: 'rgba(139, 69, 19, 0.8)', // SaddleBrown-ish, semi-transparent
-    secondary: 'rgba(210, 180, 140, 0.85)', // Tan-ish, semi-transparent
-    panelBg: 'rgba(57, 52, 43, 0.9)', // Dark Olive/Brown, semi-transparent
-    textPrimary: '#FFF8DC', // Cornsilk
-    textSecondary: '#5D3A1A', // Darker Brown for labels
-    textHeader: '#A0522D', // Sienna (original)
-    bloodRed: '#8b0000', // DarkRed
-    border: 'rgba(139, 69, 19, 0.5)', // SaddleBrown-ish, more transparent
-    inputBg: '#FFF8DC', // Cornsilk (approximates amber-50)
-    inputBorder: '#8B4513', // SaddleBrown (approximates amber-700)
-    checkboxAccent: '#8B4513', // SaddleBrown (approximates amber-700)
-    handleBg: 'rgba(139, 69, 19, 0.3)', // SaddleBrown-ish, very transparent
+    primary: 'rgba(139, 69, 19, 0.8)',
+    secondary: 'rgba(210, 180, 140, 0.85)',
+    panelBg: 'rgba(57, 52, 43, 0.9)',
+    textPrimary: '#FFF8DC',
+    textSecondary: '#5D3A1A',
+    textHeader: '#A0522D',
+    bloodRed: '#8b0000',
+    border: 'rgba(139, 69, 19, 0.5)',
+    inputBg: '#FFF8DC',
+    inputBorder: '#8B4513',
+    checkboxAccent: '#8B4513',
+    handleBg: 'rgba(139, 69, 19, 0.3)',
     shadow: 'rgba(0,0,0,0.15)',
     textShadow: 'rgba(0,0,0,0.3)',
-    // Colors for the blood drip text shadow effect
     bloodShadowDark: 'rgba(50, 0, 0, 0.8)',
     bloodShadowMid: 'rgba(100, 0, 0, 0.6)',
     bloodShadowLight: 'rgba(139, 0, 0, 0.4)',
+    background: 'transparent',
   },
   fonts: {
     primary: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
     header: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
   },
   layout: {
-    borderRadius: '0.75rem', // Corresponds to rounded-xl
-    padding: '1rem', // Corresponds to p-4
+    borderRadius: '0.75rem',
+    padding: '1rem',
     controlBarHeight: '60px',
     panelShadow: '0 8px 32px rgba(0,0,0,0.15)',
     buttonPadding: '0.5rem 1.5rem',
@@ -113,12 +101,7 @@ const theme = {
   },
 };
 
-/**
- * Default Python code provided in the editor.
- * @type {string}
- */
-const DEFAULT_PYTHON_CODE =
-`# Copyright (c) 2025 0hmX
+const DEFAULT_PYTHON_CODE = `# Copyright (c) 2025 0hmX
 # SPDX-License-Identifier: MIT
 
 """
@@ -215,16 +198,12 @@ def draw(X, Y, Z, GRID_SIZE):
         return False
 `;
 
-/**
- * Main application component integrating the code editor and 3D canvas.
- * @returns {JSX.Element} The rendered application UI.
- */
 const Index = () => {
   const [pythonCode, setPythonCode] = useState(DEFAULT_PYTHON_CODE);
   const [gridSize, setGridSize] = useState(20);
   const [showGrid, setShowGrid] = useState(true);
-  const [canvasWidth, setCanvasWidth] = useState(500); // Consider making dynamic based on panel size
-  const [canvasHeight, setCanvasHeight] = useState(500); // Consider making dynamic based on panel size
+  const [canvasWidth, setCanvasWidth] = useState(500);
+  const [canvasHeight, setCanvasHeight] = useState(500);
   const [pythonInterpreter, setPythonInterpreter] = useState<Interpreter | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [shouldRun, setShouldRun] = useState(false);
@@ -248,13 +227,11 @@ const Index = () => {
 
   const handleCodeChange = (newCode: string) => {
     setPythonCode(newCode);
-    if (error) {
-      setError(null);
-    }
+    if (error) setError(null);
   };
 
   const handleGridSizeChange = (size: number) => {
-    setGridSize(Math.max(1, size)); // Ensure size is at least 1
+    setGridSize(Math.max(1, size));
   };
 
   const handleShowGridChange = (show: boolean) => {
@@ -272,22 +249,18 @@ const Index = () => {
       return;
     }
     if (isRunning) {
-        console.log('Already running code.');
-        return;
+      console.log('Already running code.');
+      return;
     }
 
-    setError(null); // Reset error state
+    setError(null);
 
     try {
-      // Attempt to parse the code to catch syntax errors early
       pythonInterpreter.parse(pythonCode);
       console.log('Python code parsed successfully.');
-
-      // If parsing is successful, proceed to run
       console.log('Run button clicked, setting shouldRun=true');
       setIsRunning(true);
-      setShouldRun(true); // Trigger run in CanvasPanel
-
+      setShouldRun(true);
     } catch (err) {
       console.error('Python syntax error:', err);
       const syntaxError = err instanceof Error ? err : new Error(String(err));
@@ -297,7 +270,7 @@ const Index = () => {
         description: syntaxError.message || 'Invalid Python syntax.',
         variant: "destructive",
       });
-      setIsRunning(false); // Ensure isRunning is false if parsing fails
+      setIsRunning(false);
       setShouldRun(false);
     }
   };
@@ -315,9 +288,6 @@ const Index = () => {
         description: err.message || 'An error occurred while running your code.',
         variant: "destructive",
       });
-    } else {
-        // Optionally show a success toast
-        // toast({ title: "Success", description: "Code executed successfully." });
     }
   };
 
@@ -337,17 +307,14 @@ const Index = () => {
         backgroundAttachment: theme.background.attachment,
       }}
     >
-      {/* Pass theme to Header */}
       <Header theme={theme} />
 
-      {/* Show Navbar only on desktop */}
       {!isMobile && (
         <div className="mb-4">
           <Navbar onRunCode={handleRunCode} isRunning={isRunning} error={error} />
         </div>
       )}
 
-      {/* Mobile view controls */}
       {isMobile && (
         <MobileControls
           theme={theme}
@@ -359,10 +326,8 @@ const Index = () => {
         />
       )}
 
-      {/* Main Content Area (Mobile or Desktop) */}
       <div className={`flex-grow ${isMobile ? 'h-[calc(100vh-220px)]' : 'h-[calc(100vh-180px)]'}`}>
         {isMobile ? (
-          // Mobile Layout: Switch between Editor and Canvas
           <div
             className="h-full w-full overflow-hidden rounded-xl"
             style={{ boxShadow: theme.layout.panelShadow }}
@@ -377,7 +342,7 @@ const Index = () => {
             ) : (
               <CanvasPanel
                 theme={theme}
-                canvasWidth={canvasWidth} // Adjust width/height for mobile?
+                canvasWidth={canvasWidth}
                 canvasHeight={canvasHeight}
                 gridSize={gridSize}
                 showGrid={showGrid}
@@ -392,10 +357,9 @@ const Index = () => {
             )}
           </div>
         ) : (
-          // Desktop Layout: Resizable Panels
           <ResizablePanelGroup
             direction="horizontal"
-            className="w-full h-full rounded-xl overflow-hidden" // Ensure group takes full height
+            className="w-full h-full rounded-xl overflow-hidden"
             style={{ boxShadow: theme.layout.panelShadow }}
           >
             <ResizablePanel defaultSize={50} minSize={30}>
@@ -418,7 +382,7 @@ const Index = () => {
             <ResizablePanel defaultSize={50} minSize={30}>
               <CanvasPanel
                 theme={theme}
-                canvasWidth={canvasWidth} // Consider adjusting based on panel size
+                canvasWidth={canvasWidth}
                 canvasHeight={canvasHeight}
                 gridSize={gridSize}
                 showGrid={showGrid}

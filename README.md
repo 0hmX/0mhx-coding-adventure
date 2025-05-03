@@ -1,4 +1,4 @@
-# Craft-Voxol
+# AnimationEngineForYoutubeVideo
 
 A creative coding environment that allows you to write Python code and visualize 3D shapes in real-time using Three.js.
 
@@ -6,7 +6,7 @@ A creative coding environment that allows you to write Python code and visualize
 
 ## Overview
 
-Craft-Voxol is an educational tool that combines Python programming with 3D visualization. It's designed to help learners explore programming concepts through interactive visual feedback.
+AnimationEngineForYoutubeVideo is an educational tool that combines Python programming with 3D visualization. It's designed to help learners explore programming concepts through interactive visual feedback.
 
 ## Features
 
