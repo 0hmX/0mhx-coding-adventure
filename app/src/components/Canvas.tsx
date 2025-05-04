@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import type { Interpreter } from '../../submodules/jspython/src/interpreter';
+import type { Interpreter } from '../../../submodules/jspython--force';
 import * as THREE from 'three';
 const mouseEventHandler = makeSendPropertiesHandler( [
 	'ctrlKey',
