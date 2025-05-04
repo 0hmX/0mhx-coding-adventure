@@ -220,7 +220,7 @@ importers:
         specifier: ^5.4.1
         version: 5.4.19(@types/node@22.15.3)(terser@5.39.0)
 
-  submodules/jspython:
+  submodules/jspython--force:
     devDependencies:
       '@rollup/plugin-terser':
         specifier: ^0.4.0
