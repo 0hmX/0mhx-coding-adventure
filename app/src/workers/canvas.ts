@@ -1,4 +1,4 @@
-import { Interpreter, jsPython } from '../../submodules/jspython/src/interpreter';
+import { Interpreter, jsPython } from '../../../submodules/jspython/src/interpreter';
 import * as THREE from 'three';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
