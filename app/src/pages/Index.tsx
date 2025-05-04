@@ -6,7 +6,7 @@ import {
   ResizableHandle,
 } from '@/components/ui/resizable';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { jsPython, type Interpreter } from '../../submodules/jspython/src/interpreter';
+import { jsPython, type Interpreter } from '../../../submodules/jspython';
 import { useToast } from '@/hooks/use-toast';
 import Header from '../components/Header';
 import MobileControls from '../components/MobileControls';

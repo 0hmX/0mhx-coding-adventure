@@ -1,5 +1,5 @@
 packages:
   # Include the main project
-  - '.'
+  - 'app'
   # Include the jspython submodule
-  - 'submodules/jspython'
+  - 'submodules/*'
